@@ -656,7 +656,7 @@ button{
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDLlDWMtNLNuVXLlSNJDinFrnUMSzLpq7c",
@@ -837,23 +837,44 @@ button{
     };
 
     window.signIn = async function signIn() {
-      const email = prompt('Enter email');
-      const password = prompt('Enter password');
-      if (!email || !password) return;
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-        document.getElementById('authStatus').textContent = `Logged in as ${email}`;
-        alert('Logged in 🌱');
-      } catch (err) {
-        try {
-          await createUserWithEmailAndPassword(auth, email, password);
-          document.getElementById('authStatus').textContent = `Account created for ${email}`;
-          alert('Account created 🌱');
-        } catch (createErr) {
-          alert('Login failed. Check Firebase Authentication Email/Password is enabled.');
+  const email = prompt('Enter email');
+  const password = prompt('Enter password');
+
+  if (!email || !password) return;
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+
+    document.getElementById('authStatus').textContent =
+      `Logged in as ${email}`;
+
+    alert('Logged in 🌱');
+
+  } catch (err) {
+    try {
+      const userCredential =
+        await createUserWithEmailAndPassword(auth, email, password);
+
+      await setDoc(
+        doc(db, 'USERS', userCredential.user.uid),
+        {
+          email: email,
+          role: 'customer',
+          createdAt: serverTimestamp()
         }
-      }
-    };
+      );
+
+      document.getElementById('authStatus').textContent =
+        `Account created for ${email}`;
+
+      alert('Account created 🌱');
+
+    } catch (createErr) {
+      console.error(createErr);
+      alert('Login or account creation failed. Please check your email and password.');
+    }
+  }
+};
 
     window.setRating = function setRating(index, value) {
       products[index].rating = value;
