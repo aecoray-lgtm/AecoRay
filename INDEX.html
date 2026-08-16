@@ -588,6 +588,7 @@ button{
           <h2>Account Access</h2>
           <p class="tiny-note">Sign in or create an account using Firebase Email and Password authentication.</p>
           <button onclick="signIn()">Login or Create Account</button>
+     <button class="button-secondary" onclick="forgotPassword()" style="margin-top:10px;">Forgot Password?</button>
           <div style="margin-top:18px;">
             <button class="button-secondary" onclick="toggleAdminMode(true)"></button>
           </div>
@@ -655,7 +656,7 @@ button{
   </footer>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -875,7 +876,19 @@ button{
     }
   }
 };
+window.forgotPassword = async function forgotPassword() {
+  const email = prompt('Enter the email address for your AecoRay account');
 
+  if (!email) return;
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert('Password reset email sent. Please check your inbox and spam folder.');
+  } catch (error) {
+    console.error(error);
+    alert('We could not send the reset email. Please check the email address and try again.');
+  }
+};
     window.setRating = function setRating(index, value) {
       products[index].rating = value;
       save();
