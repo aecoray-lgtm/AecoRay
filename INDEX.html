@@ -587,6 +587,12 @@ button{
         <div class="panel">
           <h2>Account Access</h2>
           <p class="tiny-note">Sign in or create an account using Firebase Email and Password authentication.</p>
+
+          <select id="accountRole">
+  <option value="customer">Customer</option>
+  <option value="seller">Seller</option>
+</select>
+
           <button onclick="signIn()">Login or Create Account</button>
      <button class="button-secondary" onclick="forgotPassword()" style="margin-top:10px;">Forgot Password?</button>
           <div style="margin-top:18px;">
@@ -657,7 +663,7 @@ button{
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDLlDWMtNLNuVXLlSNJDinFrnUMSzLpq7c",
@@ -844,12 +850,19 @@ button{
   if (!email || !password) return;
 
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-    document.getElementById('authStatus').textContent =
-      `Logged in as ${email}`;
+    const userDoc = await getDoc(doc(db, 'USERS', userCredential.user.uid));
+const userData = userDoc.data();
+const userRole = userData?.role;
 
-    alert('Logged in 🌱');
+    if (userRole === 'seller') {
+  switchView('login');
+  document.getElementById('authStatus').textContent = `Seller logged in as ${email}`;
+} else {
+  switchView('home');
+  document.getElementById('authStatus').textContent = `Customer logged in as ${email}`;
+}
 
   } catch (err) {
     try {
@@ -860,7 +873,7 @@ button{
         doc(db, 'USERS', userCredential.user.uid),
         {
           email: email,
-          role: 'customer',
+          role: document.getElementById('accountRole').value,
           createdAt: serverTimestamp()
         }
       );
