@@ -582,6 +582,24 @@ button{
       <div id="categoryDetail" style="margin-top:24px;"></div>
     </section>
 
+<section id="sellerDashboardView" class="view">
+  <div class="section-heading">
+    <div>
+      <h2>Seller Dashboard</h2>
+      <p>Manage your AecoRay store, products, and seller profile.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>My Store</h3>
+    <p id="sellerWelcome">Welcome to your seller dashboard.</p>
+
+    <div style="margin-top:18px;">
+      <button onclick="switchView('login')">Account & Settings</button>
+    </div>
+  </div>
+</section>
+  
     <section id="loginView" class="view">
       <div class="split-grid">
         <div class="panel">
@@ -857,7 +875,7 @@ const userData = userDoc.data();
 const userRole = userData?.role;
 
     if (userRole === 'seller') {
-  switchView('login');
+ switchView('sellerDashboard');
   document.getElementById('authStatus').textContent = `Seller logged in as ${email}`;
 } else {
   switchView('home');
@@ -878,6 +896,14 @@ const userRole = userData?.role;
         }
       );
 
+ const newUserRole = document.getElementById('accountRole').value;
+
+if (newUserRole === 'seller') {
+  switchView('sellerDashboard');
+} else {
+  switchView('home');
+}
+      
       document.getElementById('authStatus').textContent =
         `Account created for ${email}`;
 
