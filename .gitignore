@@ -1,0 +1,9 @@
+# The publish directory is the repo root, so anything committed here is also
+# served publicly. Never commit local environment files.
+.env
+.env.*
+!.env.example
+
+node_modules/
+.netlify/
+.DS_Store

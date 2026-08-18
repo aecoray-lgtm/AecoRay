@@ -1,0 +1,15 @@
+[build.environment]
+  # INDEX.html initializes Firebase in the browser, so it necessarily contains
+  # the Firebase Web config (apiKey, authDomain, appId, ...). Those values are
+  # public project identifiers by design -- access is controlled by Firestore
+  # security rules and Firebase authorized domains, not by keeping them secret.
+  #
+  # Netlify's *smart* secrets detection matches the Google API key pattern and
+  # fails the build on them, which is a false positive for a client-side app.
+  # Turning smart detection off suppresses only that pattern-based heuristic.
+  #
+  # Scanning for the values of this site's environment variables stays ENABLED,
+  # so real credentials -- NETLIFY_DATABASE_URL / NETLIFY_DATABASE_URL_UNPOOLED
+  # from the Neon integration -- still fail the build if they ever reach a
+  # committed file or the published output. Keep them in the Netlify UI only.
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
