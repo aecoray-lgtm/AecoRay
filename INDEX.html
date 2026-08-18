@@ -594,6 +594,27 @@ button{
     <h3>My Store</h3>
     <p id="sellerWelcome">Welcome to your seller dashboard.</p>
 
+<div style="margin-top:18px;">
+  <button onclick="showSellerProductForm()">Add Product</button>
+  <button class="button-secondary" onclick="loadSellerProducts()">My Products</button>
+</div>
+
+    <div id="sellerProductForm" style="display:none; margin-top:20px;">
+  <h3>Add Product</h3>
+
+  <input id="sellerProductName" type="text" placeholder="Product name" />
+
+  <input id="sellerProductPrice" type="number" step="0.01" placeholder="Price" />
+
+  <textarea id="sellerProductDescription" placeholder="Product description"></textarea>
+
+  <input id="sellerProductImage" type="text" placeholder="Image URL for now" />
+
+  <button onclick="saveSellerProduct()">Save Product</button>
+</div>
+
+<div id="sellerProductsList" style="margin-top:20px;"></div>
+    
     <div style="margin-top:18px;">
       <button onclick="switchView('login')">Account & Settings</button>
     </div>
@@ -680,9 +701,8 @@ button{
   </footer>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDLlDWMtNLNuVXLlSNJDinFrnUMSzLpq7c",
       authDomain: "aecoray-marketplace-sigue.firebaseapp.com",
@@ -696,6 +716,8 @@ button{
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+
+    let editingProductId = null;
 
     const categoryDefinitions = [
       { id: 'sustainable-fashion', icon: '👕', name: 'Sustainable Fashion', description: 'Eco-conscious apparel, accessories, and ethical style.' },
@@ -836,6 +858,199 @@ button{
       return stars;
     }
 
+window.saveSellerProduct = async function saveSellerProduct() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  const name = document.getElementById('sellerProductName').value.trim();
+  const price = Number(document.getElementById('sellerProductPrice').value);
+  const description = document.getElementById('sellerProductDescription').value.trim();
+  const imageUrl = document.getElementById('sellerProductImage').value.trim();
+
+  if (!name || !price) {
+    alert('Please enter a product name and price.');
+    return;
+  }
+
+ if (editingProductId) {
+  const productRef = doc(db, 'PRODUCTS', editingProductId);
+  const productSnapshot = await getDoc(productRef);
+
+  if (!productSnapshot.exists()) {
+    alert('Product not found.');
+    return;
+  }
+
+  const existingProduct = productSnapshot.data();
+
+  if (existingProduct.sellerId !== user.uid) {
+    alert('You can only edit your own products.');
+    return;
+  }
+
+  await updateDoc(productRef, {
+    name: name,
+    price: price,
+    description: description,
+    imageUrl: imageUrl,
+    updatedAt: serverTimestamp()
+  });
+
+  editingProductId = null;
+
+} else {
+  await addDoc(collection(db, 'PRODUCTS'), {
+    sellerId: user.uid,
+    name: name,
+    price: price,
+    description: description,
+    imageUrl: imageUrl,
+    createdAt: serverTimestamp()
+  });
+}
+
+  alert('Product saved successfully.');
+
+  document.getElementById('sellerProductName').value = '';
+  document.getElementById('sellerProductPrice').value = '';
+  document.getElementById('sellerProductDescription').value = '';
+  document.getElementById('sellerProductImage').value = '';
+  document.getElementById('sellerProductForm').style.display = 'none';
+
+  await loadSellerProducts();
+};
+
+window.loadSellerProducts = async function loadSellerProducts() {
+  const user = auth.currentUser;
+  const list = document.getElementById('sellerProductsList');
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  if (!list) return;
+
+  list.innerHTML = '<p>Loading your products...</p>';
+
+  const productsQuery = query(
+    collection(db, 'PRODUCTS'),
+    where('sellerId', '==', user.uid)
+  );
+
+  const snapshot = await getDocs(productsQuery);
+
+  if (snapshot.empty) {
+    list.innerHTML = '<p>You have not added any products yet.</p>';
+    return;
+  }
+
+  list.innerHTML = '';
+
+  snapshot.forEach((productDoc) => {
+    const product = productDoc.data();
+
+   list.innerHTML += `
+  <div class="panel" style="margin-top:12px;">
+    <h3>${product.name}</h3>
+    <p>$${Number(product.price).toFixed(2)}</p>
+    <p>${product.description || ''}</p>
+
+    <button onclick="editSellerProduct('${productDoc.id}')">
+      Edit
+    </button>
+
+    <button class="button-secondary" onclick="deleteSellerProduct('${productDoc.id}')">
+      Delete
+    </button>
+  </div>
+`;
+  });
+};
+
+window.deleteSellerProduct = async function deleteSellerProduct(productId) {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  const productRef = doc(db, 'PRODUCTS', productId);
+  const productSnapshot = await getDoc(productRef);
+
+  if (!productSnapshot.exists()) {
+    alert('Product not found.');
+    return;
+  }
+
+  const product = productSnapshot.data();
+
+  if (product.sellerId !== user.uid) {
+    alert('You can only delete your own products.');
+    return;
+  }
+
+  const confirmed = confirm('Are you sure you want to delete this product?');
+
+  if (!confirmed) return;
+
+  await deleteDoc(productRef);
+
+  alert('Product deleted.');
+
+  await loadSellerProducts();
+};
+
+window.editSellerProduct = async function editSellerProduct(productId) {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  const productRef = doc(db, 'PRODUCTS', productId);
+  const productSnapshot = await getDoc(productRef);
+
+ editingProductId = productId;
+  
+  if (!productSnapshot.exists()) {
+    alert('Product not found.');
+    return;
+  }
+
+  const product = productSnapshot.data();
+
+  if (product.sellerId !== user.uid) {
+    alert('You can only edit your own products.');
+    return;
+  }
+
+  document.getElementById('sellerProductName').value = product.name || '';
+  document.getElementById('sellerProductPrice').value = product.price || '';
+  document.getElementById('sellerProductDescription').value = product.description || '';
+  document.getElementById('sellerProductImage').value = product.imageUrl || '';
+
+  document.getElementById('sellerProductForm').style.display = 'block';
+};
+    
+window.showSellerProductForm = function showSellerProductForm() {
+  const form = document.getElementById('sellerProductForm');
+
+  if (!form) return;
+
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
+};
+    
     window.switchView = function switchView(viewName, navLink) {
       document.querySelectorAll('section.view').forEach((view) => view.classList.remove('active'));
       const target = document.getElementById(`${viewName}View`);
