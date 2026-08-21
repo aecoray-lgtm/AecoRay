@@ -1114,7 +1114,29 @@ window.showSellerProductForm = function showSellerProductForm() {
       document.getElementById('accountLatitude').value = latitude;
       document.getElementById('accountLongitude').value = longitude;
 
-      status.textContent = `Location saved: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      fetch(
+  `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+)
+  .then((response) => response.json())
+  .then((locationData) => {
+    document.getElementById('accountCountry').value =
+      locationData.countryName || '';
+
+    document.getElementById('accountRegion').value =
+      locationData.principalSubdivision || '';
+
+    document.getElementById('accountCity').value =
+      locationData.city || locationData.locality || '';
+
+    status.textContent =
+      `Location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+  })
+  .catch((error) => {
+    console.error(error);
+    status.textContent =
+      'Coordinates saved, but the city and country could not be detected automatically.';
+  });
+
     },
     (error) => {
       console.error(error);
