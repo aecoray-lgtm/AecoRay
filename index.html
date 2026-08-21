@@ -1096,6 +1096,33 @@ window.showSellerProductForm = function showSellerProductForm() {
       if (adminMode) switchView('login');
     };
 
+    window.useCurrentAccountLocation = function useCurrentAccountLocation() {
+  const status = document.getElementById('accountLocationStatus');
+
+  if (!navigator.geolocation) {
+    status.textContent = 'Geolocation is not supported by this browser.';
+    return;
+  }
+
+  status.textContent = 'Getting your location...';
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      document.getElementById('accountLatitude').value = latitude;
+      document.getElementById('accountLongitude').value = longitude;
+
+      status.textContent = `Location saved: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    },
+    (error) => {
+      console.error(error);
+      status.textContent = 'Could not get your location. You can enter it manually instead.';
+    }
+  );
+};
+    
     window.signIn = async function signIn() {
   const email = prompt('Enter email');
   const password = prompt('Enter password');
