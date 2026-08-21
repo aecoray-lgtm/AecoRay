@@ -632,6 +632,26 @@ button{
   <option value="seller">Seller</option>
 </select>
 
+          <div style="margin-top:12px;">
+  <input id="accountCountry" type="text" placeholder="Country" />
+  <input id="accountRegion" type="text" placeholder="State / Province / Region" />
+  <input id="accountCity" type="text" placeholder="City" />
+
+  <button
+    type="button"
+    class="button-secondary"
+    onclick="useCurrentAccountLocation()"
+    style="margin-top:10px;"
+  >
+    Use My Current Location
+  </button>
+
+  <p id="accountLocationStatus" class="tiny-note"></p>
+
+  <input id="accountLatitude" type="hidden" />
+  <input id="accountLongitude" type="hidden" />
+</div>
+
           <button onclick="signIn()">Login or Create Account</button>
      <button class="button-secondary" onclick="forgotPassword()" style="margin-top:10px;">Forgot Password?</button>
           <div style="margin-top:18px;">
@@ -1107,6 +1127,11 @@ const userRole = userData?.role;
         {
           email: email,
           role: document.getElementById('accountRole').value,
+          country: document.getElementById('accountCountry').value.trim(),
+region: document.getElementById('accountRegion').value.trim(),
+city: document.getElementById('accountCity').value.trim(),
+latitude: Number(document.getElementById('accountLatitude').value) || null,
+longitude: Number(document.getElementById('accountLongitude').value) || null,
           createdAt: serverTimestamp()
         }
       );
