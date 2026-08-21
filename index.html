@@ -610,6 +610,26 @@ button{
 
   <input id="sellerProductImage" type="text" placeholder="Image URL for now" />
 
+      <div style="margin-top:12px;">
+  <input id="sellerProductCountry" type="text" placeholder="Product country" />
+  <input id="sellerProductRegion" type="text" placeholder="State / Province / Region" />
+  <input id="sellerProductCity" type="text" placeholder="City" />
+
+  <button
+    type="button"
+    class="button-secondary"
+    onclick="useCurrentProductLocation()"
+    style="margin-top:10px;"
+  >
+    Use Current Location for This Product
+  </button>
+
+  <p id="sellerProductLocationStatus" class="tiny-note"></p>
+
+  <input id="sellerProductLatitude" type="hidden" />
+  <input id="sellerProductLongitude" type="hidden" />
+</div>
+
   <button onclick="saveSellerProduct()">Save Product</button>
 </div>
 
@@ -1097,6 +1117,8 @@ window.showSellerProductForm = function showSellerProductForm() {
     };
 
     window.useCurrentAccountLocation = function useCurrentAccountLocation() {
+
+    
   const status = document.getElementById('accountLocationStatus');
 
   if (!navigator.geolocation) {
@@ -1141,6 +1163,102 @@ window.showSellerProductForm = function showSellerProductForm() {
     (error) => {
       console.error(error);
       status.textContent = 'Could not get your location. You can enter it manually instead.';
+    }
+  );
+};
+
+      window.useCurrentProductLocation = function useCurrentProductLocation() {
+  const status = document.getElementById('sellerProductLocationStatus');
+
+  if (!navigator.geolocation) {
+    status.textContent = 'Geolocation is not supported by this browser.';
+    return;
+  }
+
+  status.textContent = 'Getting product location...';
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      document.getElementById('sellerProductLatitude').value = latitude;
+      document.getElementById('sellerProductLongitude').value = longitude;
+
+      fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+      )
+        .then((response) => response.json())
+        .then((locationData) => {
+          document.getElementById('sellerProductCountry').value =
+            locationData.countryName || '';
+
+          document.getElementById('sellerProductRegion').value =
+            locationData.principalSubdivision || '';
+
+          document.getElementById('sellerProductCity').value =
+            locationData.city || locationData.locality || '';
+
+          status.textContent =
+            `Product location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+        })
+        .catch((error) => {
+          console.error(error);
+          status.textContent =
+            'Coordinates saved, but the product city and country could not be detected automatically.';
+        });
+    },
+    (error) => {
+      console.error(error);
+      status.textContent =
+        'Could not get the product location. You can enter it manually instead.';
+    }
+  );
+};  window.useCurrentProductLocation = function useCurrentProductLocation() {
+  const status = document.getElementById('sellerProductLocationStatus');
+
+  if (!navigator.geolocation) {
+    status.textContent = 'Geolocation is not supported by this browser.';
+    return;
+  }
+
+  status.textContent = 'Getting product location...';
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      document.getElementById('sellerProductLatitude').value = latitude;
+      document.getElementById('sellerProductLongitude').value = longitude;
+
+      fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+      )
+        .then((response) => response.json())
+        .then((locationData) => {
+          document.getElementById('sellerProductCountry').value =
+            locationData.countryName || '';
+
+          document.getElementById('sellerProductRegion').value =
+            locationData.principalSubdivision || '';
+
+          document.getElementById('sellerProductCity').value =
+            locationData.city || locationData.locality || '';
+
+          status.textContent =
+            `Product location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+        })
+        .catch((error) => {
+          console.error(error);
+          status.textContent =
+            'Coordinates saved, but the product city and country could not be detected automatically.';
+        });
+    },
+    (error) => {
+      console.error(error);
+      status.textContent =
+        'Could not get the product location. You can enter it manually instead.';
     }
   );
 };
