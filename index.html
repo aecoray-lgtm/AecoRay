@@ -578,6 +578,42 @@ button{
           <button onclick="recommendBest()">Ask Eljos for a recommendation</button>
         </div>
       </div>
+
+      <section class="panel" id="locationSearchPanel" style="margin-bottom:24px;">
+        <h3>Search by Location</h3>
+        <p class="tiny-note">Search seller listings by country, region, city, or distance from your current location.</p>
+
+        <div class="split-grid" style="margin-top:14px;">
+          <div>
+            <input id="searchCountry" type="text" placeholder="Country" />
+            <input id="searchRegion" type="text" placeholder="State / Province / Region" />
+            <input id="searchCity" type="text" placeholder="City" />
+          </div>
+          <div>
+            <select id="searchRadiusKm">
+              <option value="">Any distance</option>
+              <option value="5">Within 5 km</option>
+              <option value="10">Within 10 km</option>
+              <option value="25">Within 25 km</option>
+              <option value="50">Within 50 km</option>
+              <option value="100">Within 100 km</option>
+              <option value="250">Within 250 km</option>
+            </select>
+            <button type="button" class="button-secondary" onclick="useCurrentSearchLocation()">Use My Current Location</button>
+            <p id="searchLocationStatus" class="tiny-note"></p>
+            <input id="searchLatitude" type="hidden" />
+            <input id="searchLongitude" type="hidden" />
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+          <button type="button" onclick="searchProductsByLocation()">Search This Area</button>
+          <button type="button" class="button-secondary" onclick="clearLocationSearch()">Clear Search</button>
+        </div>
+      </section>
+
+      <div id="locationSearchResults" class="products" style="display:none; margin-bottom:24px;"></div>
+      <div id="firestoreProductList" class="products" style="margin-bottom:24px;"></div>
       <div class="products" id="productList"></div>
       <div id="categoryDetail" style="margin-top:24px;"></div>
     </section>
@@ -911,10 +947,10 @@ window.saveSellerProduct = async function saveSellerProduct() {
   const description = document.getElementById('sellerProductDescription').value.trim();
   const imageUrl = document.getElementById('sellerProductImage').value.trim();
   const country = document.getElementById('sellerProductCountry').value.trim();
-const region = document.getElementById('sellerProductRegion').value.trim();
-const city = document.getElementById('sellerProductCity').value.trim();
-const latitude = Number(document.getElementById('sellerProductLatitude').value) || null;
-const longitude = Number(document.getElementById('sellerProductLongitude').value) || null;
+  const region = document.getElementById('sellerProductRegion').value.trim();
+  const city = document.getElementById('sellerProductCity').value.trim();
+  const latitude = Number(document.getElementById('sellerProductLatitude').value) || null;
+  const longitude = Number(document.getElementById('sellerProductLongitude').value) || null;
 
   if (!name || !price) {
     alert('Please enter a product name and price.');
@@ -943,10 +979,10 @@ const longitude = Number(document.getElementById('sellerProductLongitude').value
     description: description,
     imageUrl: imageUrl,
     country: country,
-region: region,
-city: city,
-latitude: latitude,
-longitude: longitude,
+    region: region,
+    city: city,
+    latitude: latitude,
+    longitude: longitude,
     updatedAt: serverTimestamp()
   });
 
@@ -960,10 +996,10 @@ longitude: longitude,
     description: description,
     imageUrl: imageUrl,
     country: country,
-region: region,
-city: city,
-latitude: latitude,
-longitude: longitude,
+    region: region,
+    city: city,
+    latitude: latitude,
+    longitude: longitude,
     createdAt: serverTimestamp()
   });
 }
@@ -974,6 +1010,12 @@ longitude: longitude,
   document.getElementById('sellerProductPrice').value = '';
   document.getElementById('sellerProductDescription').value = '';
   document.getElementById('sellerProductImage').value = '';
+  document.getElementById('sellerProductCountry').value = '';
+  document.getElementById('sellerProductRegion').value = '';
+  document.getElementById('sellerProductCity').value = '';
+  document.getElementById('sellerProductLatitude').value = '';
+  document.getElementById('sellerProductLongitude').value = '';
+  document.getElementById('sellerProductLocationStatus').textContent = '';
   document.getElementById('sellerProductForm').style.display = 'none';
 
   await loadSellerProducts();
@@ -1014,6 +1056,7 @@ window.loadSellerProducts = async function loadSellerProducts() {
     <h3>${product.name}</h3>
     <p>$${Number(product.price).toFixed(2)}</p>
     <p>${product.description || ''}</p>
+    <p class="tiny-note">📍 ${[product.city, product.region, product.country].filter(Boolean).join(', ') || 'Location not set'}</p>
 
     <button onclick="editSellerProduct('${productDoc.id}')">
       Edit
@@ -1072,8 +1115,6 @@ window.editSellerProduct = async function editSellerProduct(productId) {
   const productRef = doc(db, 'PRODUCTS', productId);
   const productSnapshot = await getDoc(productRef);
 
- editingProductId = productId;
-  
   if (!productSnapshot.exists()) {
     alert('Product not found.');
     return;
@@ -1086,10 +1127,19 @@ window.editSellerProduct = async function editSellerProduct(productId) {
     return;
   }
 
+  editingProductId = productId;
+
   document.getElementById('sellerProductName').value = product.name || '';
   document.getElementById('sellerProductPrice').value = product.price || '';
   document.getElementById('sellerProductDescription').value = product.description || '';
   document.getElementById('sellerProductImage').value = product.imageUrl || '';
+  document.getElementById('sellerProductCountry').value = product.country || '';
+  document.getElementById('sellerProductRegion').value = product.region || '';
+  document.getElementById('sellerProductCity').value = product.city || '';
+  document.getElementById('sellerProductLatitude').value = product.latitude ?? '';
+  document.getElementById('sellerProductLongitude').value = product.longitude ?? '';
+  document.getElementById('sellerProductLocationStatus').textContent =
+    [product.city, product.region, product.country].filter(Boolean).join(', ');
 
   document.getElementById('sellerProductForm').style.display = 'block';
 };
@@ -1182,102 +1232,49 @@ window.showSellerProductForm = function showSellerProductForm() {
   );
 };
 
-      window.useCurrentProductLocation = function useCurrentProductLocation() {
-  const status = document.getElementById('sellerProductLocationStatus');
+    window.useCurrentProductLocation = function useCurrentProductLocation() {
+      const status = document.getElementById('sellerProductLocationStatus');
 
-  if (!navigator.geolocation) {
-    status.textContent = 'Geolocation is not supported by this browser.';
-    return;
-  }
+      if (!navigator.geolocation) {
+        status.textContent = 'Geolocation is not supported by this browser.';
+        return;
+      }
 
-  status.textContent = 'Getting product location...';
+      status.textContent = 'Getting product location...';
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
 
-      document.getElementById('sellerProductLatitude').value = latitude;
-      document.getElementById('sellerProductLongitude').value = longitude;
+          document.getElementById('sellerProductLatitude').value = latitude;
+          document.getElementById('sellerProductLongitude').value = longitude;
 
-      fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-      )
-        .then((response) => response.json())
-        .then((locationData) => {
-          document.getElementById('sellerProductCountry').value =
-            locationData.countryName || '';
-
-          document.getElementById('sellerProductRegion').value =
-            locationData.principalSubdivision || '';
-
-          document.getElementById('sellerProductCity').value =
-            locationData.city || locationData.locality || '';
-
-          status.textContent =
-            `Product location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
-        })
-        .catch((error) => {
+          fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+          )
+            .then((response) => response.json())
+            .then((locationData) => {
+              document.getElementById('sellerProductCountry').value = locationData.countryName || '';
+              document.getElementById('sellerProductRegion').value = locationData.principalSubdivision || '';
+              document.getElementById('sellerProductCity').value = locationData.city || locationData.locality || '';
+              status.textContent =
+                `Product location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+            })
+            .catch((error) => {
+              console.error(error);
+              status.textContent =
+                'Coordinates saved, but the product city and country could not be detected automatically.';
+            });
+        },
+        (error) => {
           console.error(error);
           status.textContent =
-            'Coordinates saved, but the product city and country could not be detected automatically.';
-        });
-    },
-    (error) => {
-      console.error(error);
-      status.textContent =
-        'Could not get the product location. You can enter it manually instead.';
-    }
-  );
-};  window.useCurrentProductLocation = function useCurrentProductLocation() {
-  const status = document.getElementById('sellerProductLocationStatus');
+            'Could not get the product location. You can enter it manually instead.';
+        }
+      );
+    };
 
-  if (!navigator.geolocation) {
-    status.textContent = 'Geolocation is not supported by this browser.';
-    return;
-  }
-
-  status.textContent = 'Getting product location...';
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-
-      document.getElementById('sellerProductLatitude').value = latitude;
-      document.getElementById('sellerProductLongitude').value = longitude;
-
-      fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-      )
-        .then((response) => response.json())
-        .then((locationData) => {
-          document.getElementById('sellerProductCountry').value =
-            locationData.countryName || '';
-
-          document.getElementById('sellerProductRegion').value =
-            locationData.principalSubdivision || '';
-
-          document.getElementById('sellerProductCity').value =
-            locationData.city || locationData.locality || '';
-
-          status.textContent =
-            `Product location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
-        })
-        .catch((error) => {
-          console.error(error);
-          status.textContent =
-            'Coordinates saved, but the product city and country could not be detected automatically.';
-        });
-    },
-    (error) => {
-      console.error(error);
-      status.textContent =
-        'Could not get the product location. You can enter it manually instead.';
-    }
-  );
-};
-    
     window.signIn = async function signIn() {
   const email = prompt('Enter email');
   const password = prompt('Enter password');
@@ -1510,6 +1507,174 @@ window.forgotPassword = async function forgotPassword() {
       document.getElementById('total').textContent = total.toFixed(2);
     }
 
+    function normalizeLocationText(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function distanceBetweenKm(lat1, lon1, lat2, lon2) {
+      const toRadians = (degrees) => degrees * Math.PI / 180;
+      const earthRadiusKm = 6371;
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+      return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function renderFirestoreProductCards(items, target) {
+      if (!target) return;
+      if (!items.length) {
+        target.innerHTML = '<div class="product"><h3>No seller products found</h3><p>Try a different country, region, city, or radius.</p></div>';
+        return;
+      }
+
+      target.innerHTML = items.map(({ product, distanceKm }) => {
+        const image = product.imageUrl
+          ? `<img src="${product.imageUrl}" alt="${product.name || 'Seller product'}" />`
+          : '';
+        const location = [product.city, product.region, product.country].filter(Boolean).join(', ');
+        const distance = Number.isFinite(distanceKm) ? ` · ${distanceKm.toFixed(1)} km away` : '';
+        const safeName = JSON.stringify(product.name || 'Seller product');
+        const safePrice = Number(product.price || 0);
+        return `<div class="product">${image}<div class="discount-tag">Seller listing</div><h3>${product.name || 'Seller product'}</h3><p>$${safePrice.toFixed(2)}</p><p>${product.description || ''}</p><p class="tiny-note">📍 ${location || 'Location not set'}${distance}</p><button onclick='addToCart(${safeName}, ${safePrice})'>Add to Cart</button></div>`;
+      }).join('');
+    }
+
+    async function getFirestoreSellerProducts() {
+      const snapshot = await getDocs(collection(db, 'PRODUCTS'));
+      return snapshot.docs.map((productDoc) => ({
+        id: productDoc.id,
+        product: productDoc.data()
+      }));
+    }
+
+    async function loadPublicSellerProducts() {
+      const target = document.getElementById('firestoreProductList');
+      if (!target) return;
+      try {
+        const items = await getFirestoreSellerProducts();
+        renderFirestoreProductCards(items.map((entry) => ({ ...entry, distanceKm: null })), target);
+      } catch (error) {
+        console.error(error);
+        target.innerHTML = '<div class="product"><p>Seller listings are temporarily unavailable.</p></div>';
+      }
+    }
+
+    window.useCurrentSearchLocation = function useCurrentSearchLocation() {
+      const status = document.getElementById('searchLocationStatus');
+
+      if (!navigator.geolocation) {
+        status.textContent = 'Geolocation is not supported by this browser.';
+        return;
+      }
+
+      status.textContent = 'Getting your search location...';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          document.getElementById('searchLatitude').value = latitude;
+          document.getElementById('searchLongitude').value = longitude;
+
+          fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+            .then((response) => response.json())
+            .then((locationData) => {
+              document.getElementById('searchCountry').value = locationData.countryName || '';
+              document.getElementById('searchRegion').value = locationData.principalSubdivision || '';
+              document.getElementById('searchCity').value = locationData.city || locationData.locality || '';
+              status.textContent = `Searching near ${locationData.city || locationData.locality || 'your location'}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+            })
+            .catch((error) => {
+              console.error(error);
+              status.textContent = 'Coordinates saved. You can still search by radius.';
+            });
+        },
+        (error) => {
+          console.error(error);
+          status.textContent = 'Could not access your location. You can still search by country, region, or city.';
+        }
+      );
+    };
+
+    window.searchProductsByLocation = async function searchProductsByLocation() {
+      const country = normalizeLocationText(document.getElementById('searchCountry').value);
+      const region = normalizeLocationText(document.getElementById('searchRegion').value);
+      const city = normalizeLocationText(document.getElementById('searchCity').value);
+      const radiusKm = Number(document.getElementById('searchRadiusKm').value || 0);
+      const searchLatitude = Number(document.getElementById('searchLatitude').value);
+      const searchLongitude = Number(document.getElementById('searchLongitude').value);
+      const hasSearchCoordinates = Number.isFinite(searchLatitude) && Number.isFinite(searchLongitude) &&
+        document.getElementById('searchLatitude').value !== '' && document.getElementById('searchLongitude').value !== '';
+
+      if (radiusKm && !hasSearchCoordinates) {
+        alert('To search by radius, first click Use My Current Location. You can still search manually by country, region, or city without a radius.');
+        return;
+      }
+
+      const resultsTarget = document.getElementById('locationSearchResults');
+      const localProductsTarget = document.getElementById('productList');
+      const firestoreTarget = document.getElementById('firestoreProductList');
+      const categoryTarget = document.getElementById('categoryDetail');
+      resultsTarget.style.display = 'grid';
+      resultsTarget.innerHTML = '<div class="product"><p>Searching seller listings...</p></div>';
+      if (localProductsTarget) localProductsTarget.style.display = 'none';
+      if (firestoreTarget) firestoreTarget.style.display = 'none';
+      if (categoryTarget) categoryTarget.style.display = 'none';
+
+      try {
+        const items = await getFirestoreSellerProducts();
+        const filtered = items.map((entry) => {
+          const product = entry.product;
+          const productLatitude = Number(product.latitude);
+          const productLongitude = Number(product.longitude);
+          const hasProductCoordinates = Number.isFinite(productLatitude) && Number.isFinite(productLongitude) &&
+            product.latitude !== null && product.latitude !== undefined && product.longitude !== null && product.longitude !== undefined;
+          const distanceKm = hasSearchCoordinates && hasProductCoordinates
+            ? distanceBetweenKm(searchLatitude, searchLongitude, productLatitude, productLongitude)
+            : null;
+          return { ...entry, distanceKm };
+        }).filter(({ product, distanceKm }) => {
+          if (country && !normalizeLocationText(product.country).includes(country)) return false;
+          if (region && !normalizeLocationText(product.region).includes(region)) return false;
+          if (city && !normalizeLocationText(product.city).includes(city)) return false;
+          if (radiusKm && (!Number.isFinite(distanceKm) || distanceKm > radiusKm)) return false;
+          return true;
+        }).sort((a, b) => {
+          if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
+          return 0;
+        });
+
+        renderFirestoreProductCards(filtered, resultsTarget);
+      } catch (error) {
+        console.error(error);
+        resultsTarget.innerHTML = '<div class="product"><p>Location search is temporarily unavailable. Please try again.</p></div>';
+      }
+    };
+
+    window.clearLocationSearch = function clearLocationSearch() {
+      ['searchCountry', 'searchRegion', 'searchCity', 'searchLatitude', 'searchLongitude'].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+      });
+      const radius = document.getElementById('searchRadiusKm');
+      if (radius) radius.value = '';
+      const status = document.getElementById('searchLocationStatus');
+      if (status) status.textContent = '';
+      const resultsTarget = document.getElementById('locationSearchResults');
+      if (resultsTarget) {
+        resultsTarget.innerHTML = '';
+        resultsTarget.style.display = 'none';
+      }
+      const localProductsTarget = document.getElementById('productList');
+      const firestoreTarget = document.getElementById('firestoreProductList');
+      const categoryTarget = document.getElementById('categoryDetail');
+      if (localProductsTarget) localProductsTarget.style.display = 'grid';
+      if (firestoreTarget) firestoreTarget.style.display = 'grid';
+      if (categoryTarget) categoryTarget.style.display = 'block';
+    };
+
     window.recommendBest = function recommendBest() {
       const best = [...products].sort((a, b) => b.rating - a.rating)[0];
       if (best) alert(`🧠 Eljos recommends: ${best.name} with ${best.rating}⭐ and seller score ${best.seller}/100`);
@@ -1715,6 +1880,7 @@ window.forgotPassword = async function forgotPassword() {
 
     renderCategoryGrid();
     renderProducts();
+    loadPublicSellerProducts();
     renderAecorayListings();
     renderDynamicSections();
     renderCategoryDetail();
