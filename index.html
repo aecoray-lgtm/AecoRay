@@ -910,6 +910,11 @@ window.saveSellerProduct = async function saveSellerProduct() {
   const price = Number(document.getElementById('sellerProductPrice').value);
   const description = document.getElementById('sellerProductDescription').value.trim();
   const imageUrl = document.getElementById('sellerProductImage').value.trim();
+  const country = document.getElementById('sellerProductCountry').value.trim();
+const region = document.getElementById('sellerProductRegion').value.trim();
+const city = document.getElementById('sellerProductCity').value.trim();
+const latitude = Number(document.getElementById('sellerProductLatitude').value) || null;
+const longitude = Number(document.getElementById('sellerProductLongitude').value) || null;
 
   if (!name || !price) {
     alert('Please enter a product name and price.');
@@ -937,6 +942,11 @@ window.saveSellerProduct = async function saveSellerProduct() {
     price: price,
     description: description,
     imageUrl: imageUrl,
+    country: country,
+region: region,
+city: city,
+latitude: latitude,
+longitude: longitude,
     updatedAt: serverTimestamp()
   });
 
@@ -949,6 +959,11 @@ window.saveSellerProduct = async function saveSellerProduct() {
     price: price,
     description: description,
     imageUrl: imageUrl,
+    country: country,
+region: region,
+city: city,
+latitude: latitude,
+longitude: longitude,
     createdAt: serverTimestamp()
   });
 }
