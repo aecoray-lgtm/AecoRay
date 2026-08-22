@@ -1,0 +1,1895 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aecoray Marketplace</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --bg-1: #07111a;
+      --bg-2: #0e1f2a;
+      --card: rgba(10, 18, 28, 0.78);
+      --card-strong: rgba(8, 14, 22, 0.9);
+      --line: rgba(255,255,255,0.09);
+      --text: #ecf7f4;
+      --muted: #b9d2cb;
+      --accent: #7cf7d4;
+      --accent-2: #7ab8ff;
+      --accent-3: #b6ffe6;
+      --shadow: 0 24px 60px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: Inter, 'Segoe UI', sans-serif;
+      margin: 0;
+      background:
+      linear-gradient(rgba(5,15,20,.35),rgba(5,15,20,.55)),
+      url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=2000&q=90');
+      background-size: cover;
+      background-position:center center;
+      background-repeat:no-repeat;
+      background-attachment:fixed;
+      color: var(--text);
+    }
+    header {
+      background: rgba(7,17,26,0.66);
+      backdrop-filter: blur(18px);
+      padding: 18px 34px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      object-fit: cover;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .brand-copy strong {
+      font-size: 18px;
+      letter-spacing: 0.02em;
+    }
+    .brand-copy span {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+    nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      transition: 0.25s ease;
+    }
+    nav a:hover, nav a.active {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--line);
+    }
+    .hero {
+      text-align: center;
+      padding: 96px 20px 50px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--line);
+      color: var(--accent-3);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      font-size: clamp(42px, 7vw, 76px);
+      line-height: 1.02;
+      margin: 20px 0 16px;
+      background: linear-gradient(90deg, #f4fffb 0%, #7cf7d4 48%, #7ab8ff 100%);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+    .container {
+      padding: 0 24px 48px;
+      max-width: 1320px;
+      margin: 0 auto;
+    }
+    section.view { display: none; }
+    section.view.active { display: block; }
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 30px 0 18px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-size: 30px;
+    }
+    .section-heading p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+    }
+    .category, .product, .panel, .legal-card, .metric-card {
+      background: var(--card);
+      backdrop-filter: blur(16px);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+    .categories, .products, .metrics-grid, .legal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+      gap: 20px;
+    }
+    .categories .category {
+      cursor: pointer;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.22s ease, border-color 0.22s ease;
+    }
+    .categories .category:hover {
+      transform: translateY(-4px);
+      border-color: rgba(124,247,212,0.35);
+    }
+    .category .icon { font-size: 34px; }
+    .category h3 { margin: 14px 0 8px; }
+    .category p { margin: 0; color: var(--muted); font-size: 14px; }
+    .product img, video {
+      width: 100%;
+      border-radius: 18px;
+      height: 180px;
+      object-fit: cover;
+    }
+    .product-gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .product-gallery img {
+      width: 100%;
+      height: 128px;
+      object-fit: cover;
+      border-radius: 14px;
+    }
+    button, .button-link {
+      background: linear-gradient(90deg,#7cf7d4,#6fd7ff);
+      color: #07111a;
+      padding: 11px 14px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .button-secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      color: #07111a;
+      box-sizing: border-box;
+      font-family: inherit;
+      margin-bottom: 10px;
+    }
+    .stars { color: #7cf7d4; font-size: 16px; cursor: pointer; margin: 8px 0; }
+    .seller-score, .review, #authStatus, .meta-note {
+      font-size: 12px;
+      opacity: 0.9;
+      color: var(--muted);
+    }
+    .review-box { margin-top: 10px; }
+    #cart {
+      position: fixed;
+      right: -390px;
+      top: 0;
+      width: 320px;
+      height: 100%;
+      background: rgba(7,17,26,0.96);
+      padding: 24px;
+      transition: 0.35s;
+      z-index: 90;
+      overflow: auto;
+      border-left: 1px solid var(--line);
+    }
+    #cart.open { right: 0; }
+    #cartClose {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: transparent;
+      color: white;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    #cartToggle {
+      position: fixed;
+      bottom: 90px;
+      right: 18px;
+      background: linear-gradient(90deg,#7cf7d4,#6fd7ff);
+      color: #07111a;
+      padding: 13px;
+      border-radius: 999px;
+      cursor: pointer;
+      z-index: 91;
+      font-weight: 800;
+      box-shadow: var(--shadow);
+    }
+    footer {
+      text-align: center;
+      padding: 34px 20px 70px;
+      color: var(--muted);
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .footer-links a {
+      color: var(--text);
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+    }
+    .socials a { margin: 10px; font-size: 20px; color: white; }
+    #aiChat {
+      position: fixed;
+      bottom: 84px;
+      right: 20px;
+      width: 320px;
+      background: rgba(7,17,26,0.96);
+      padding: 15px;
+      border-radius: 18px;
+      display: none;
+      z-index: 95;
+      border: 1px solid var(--line);
+    }
+    #aiMessages {
+      height: 180px;
+      overflow: auto;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    #aiButton {
+      position: fixed;
+      bottom: 22px;
+      right: 20px;
+      background: linear-gradient(90deg,#7cf7d4,#6fd7ff);
+      color: #07111a;
+      padding: 15px;
+      border-radius: 50%;
+      cursor: pointer;
+      z-index: 96;
+      box-shadow: var(--shadow);
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.86);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal-card {
+      background: rgba(7,17,26,0.98);
+      padding: 24px;
+      border-radius: 20px;
+      width: min(92vw, 920px);
+      max-height: 82vh;
+      overflow: auto;
+      text-align: left;
+      border: 1px solid var(--line);
+    }
+    .promo-row { display: flex; gap: 8px; margin-top: 12px; }
+    .promo-row input { flex: 1; }
+    .tiny-note { font-size: 12px; opacity: 0.8; margin-top: 8px; color: var(--muted); }
+    .discount-tag {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(124,247,212,0.12);
+      color: #9fffe8;
+      font-size: 12px;
+      border: 1px solid rgba(124,247,212,0.16);
+    }
+    .test-results { margin-top: 20px; font-size: 12px; opacity: 0.9; white-space: pre-wrap; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; margin-bottom: 16px; }
+    .filter-chip {
+      background: rgba(255,255,255,0.08);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+    .filter-chip.active {
+      background: linear-gradient(90deg,#7cf7d4,#6fd7ff);
+      color: #07111a;
+    }
+    .listing-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0;
+      flex-wrap: wrap;
+    }
+    .admin-panel { display: none; margin-top: 18px; }
+    .admin-panel.visible { display: block; }
+    .split-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+    @media (max-width: 900px) {
+      .split-grid { grid-template-columns: 1fr; }
+      .product-gallery { grid-template-columns: 1fr; }
+      header {
+        padding: 16px 18px;
+        flex-direction: column;
+        gap: 14px;
+        align-items: stretch;
+      }
+      .container { padding: 0 16px 40px; }
+      #cart { width: 100%; right: -100%; }
+    }
+  </style>
+
+<style>
+@media (max-width:768px){
+  body{
+    background-size:cover !important;
+    background-position:center center !important;
+    background-repeat:no-repeat !important;
+    background-attachment:scroll !important;
+  }
+}
+
+input, select, textarea{
+  background: rgba(15,35,40,0.85) !important;
+  color:#ffffff !important;
+  border:2px solid rgba(124,247,212,.35) !important;
+  border-radius:14px !important;
+  padding:14px !important;
+  font-size:16px !important;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:rgba(255,255,255,.65) !important;
+}
+
+button{
+  min-height:56px;
+  border-radius:14px;
+}
+</style>
+
+</head>
+<body>
+  <header>
+    <div class="brand-wrap">
+      <img id="brandLogo" class="brand-logo" src="aecoray-logo.png" alt="Aecoray logo" onerror="this.src='https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=400&q=80'" />
+      <div class="brand-copy">
+        <strong>Aecoray</strong>
+        <span>Sustainable marketplace ecosystem</span>
+      </div>
+    </div>
+    <nav>
+      <a href="#" class="active" onclick="switchView('home', this); return false;">Home</a>
+      <a href="#" onclick="switchView('shop', this); return false;">Shop</a>
+      <a href="#" onclick="switchView('login', this); return false;">Login</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="hero-badge">Future-ready sustainable commerce</div>
+    <h1>Marketplace design for a greener economy.</h1>
+    <p>Aecoray brings together sustainable products, services, events, creators, and mission-led sellers in one premium digital ecosystem.</p>
+    <div class="hero-actions">
+      <button onclick="switchView('shop'); scrollToTop();">Explore Marketplace</button>
+      <button class="button-secondary" onclick="openCategory('green-tech');">Browse Categories</button>
+    </div>
+  </section>  
+<div class="container">
+    <section id="homeView" class="view active">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="discount-tag">Aecoray Collection</div>
+          <h3>Sustainable Products, Services & Experiences</h3>
+          <p class="meta-note">Your public-facing brand showcase for products, services, and events.</p>
+        </div>
+        <div class="metric-card">
+          <div class="discount-tag">Seller Marketplace</div>
+          <h3>Join the AECORAY Community</h3>
+          <p class="meta-note">A space for sustainability-minded sellers to join, list, and grow.</p>
+        </div>
+        <div class="metric-card">
+          <div class="discount-tag">Secure Checkout</div>
+          <h3>Secure Checkout Experience</h3>
+          <p class="meta-note">Shop confidently through our secure checkout experience.</p>
+        </div>
+      </div>
+
+      <div id="aiAuto" class="panel" style="margin-top:24px;">
+        <div class="section-heading">
+          <div>
+            <h2>🧠 Eljos Intelligence</h2>
+            <p id="aiAutoText">Loading recommendation...</p>
+          </div>
+          <div>
+            <p id="authStatus">Not logged in</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <div>
+          <h2>Explore Categories</h2>
+          <p>Each category opens a focused marketplace area with Aecoray offerings, seller listings, and a prototype payment path.</p>
+        </div>
+      </div>
+      <div class="categories" id="categoryGrid"></div>
+
+      <div class="section-heading">
+        <div>
+          <h2>Aecoray Collection</h2>
+          <p>Premium public-facing collection for Aecoray products, services, and events.</p>
+        </div>
+      </div>
+      <section class="panel" style="margin-top:8px; margin-bottom:24px;">
+        <div class="filter-row">
+          <button id="filter-all" class="filter-chip active" onclick="setAecorayFilter('all')">All</button>
+          <button id="filter-product" class="filter-chip" onclick="setAecorayFilter('product')">Products</button>
+          <button id="filter-service" class="filter-chip" onclick="setAecorayFilter('service')">Services</button>
+          <button id="filter-event" class="filter-chip" onclick="setAecorayFilter('event')">Events</button>
+        </div>
+        <div id="aecorayListings" class="products" style="margin-top:20px;"></div>
+        <div class="tiny-note" style="margin-top:14px;">Prototype checkout version: all buy and hire actions flow to the cart and current Stripe checkout link.</div>
+        <div class="admin-panel" id="adminPanel">
+          <div class="split-grid">
+            <div class="product">
+              <h3>Admin Mode · Add Aecoray Listing</h3>
+              <input id="aecorayTitle" placeholder="Product, service, or event name" />
+              <select id="aecorayType">
+                <option value="product">Product</option>
+                <option value="service">Service</option>
+                <option value="event">Event</option>
+              </select>
+              <select id="aecorayCategory"></select>
+              <input id="aecorayPrice" placeholder="Price" />
+              <input id="aecorayImages" placeholder="Image URL or multiple URLs separated by commas" />
+              <textarea id="aecorayDescription" placeholder="Short description" style="min-height:110px;"></textarea>
+              <button onclick="addAecorayListing()">Publish to Aecoray Collection</button>
+            </div>
+            <div class="product">
+              <h3>Admin Mode</h3>
+              <p class="tiny-note">This panel stays hidden from public shoppers until you turn it on.</p>
+              <button class="button-secondary" onclick="toggleAdminMode(false)">Hide Admin Mode</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="dynamicSections"></div>
+
+      <section id="creatorStudio" class="panel" style="margin-top:40px;">
+        <div class="section-heading">
+          <div>
+            <h2>Creator Studio</h2>
+            <p>Publish your own music, videos, pictures, and blog-style storytelling content.</p>
+          </div>
+        </div>
+        <div class="products" style="margin-top:20px; align-items:start;">
+          <div class="product">
+            <h3>Upload Content</h3>
+            <input id="creatorTitle" placeholder="Title" />
+            <select id="creatorType">
+              <option value="music">Music</option>
+              <option value="video">Video</option>
+              <option value="image">Picture</option>
+              <option value="blog">Blog</option>
+            </select>
+            <input id="creatorUrl" placeholder="Media URL or image URL" />
+            <textarea id="creatorDescription" placeholder="Short description or blog text" style="min-height:120px;"></textarea>
+            <button onclick="addCreatorContent()">Publish to Website</button>
+          </div>
+          <div class="product">
+            <h3>Featured Categories</h3>
+            <div class="discount-tag">Music</div>
+            <div class="discount-tag">Videos</div>
+            <div class="discount-tag">Pictures</div>
+            <div class="discount-tag">Blogs</div>
+            <p class="tiny-note">Your uploaded content appears below in a premium gallery layout.</p>
+          </div>
+        </div>
+        <div id="creatorGallery" class="products" style="margin-top:20px;"></div>
+        <div id="testResults" class="test-results"></div>
+      </section>
+    </section>
+
+    <section id="shopView" class="view">
+      <div class="section-heading">
+        <div>
+          <h2>Marketplace</h2>
+          <p>Browse the full Aecoray ecosystem of products, services, events, and mission-driven seller offerings.</p>
+        </div>
+        <div>
+          <button onclick="recommendBest()">Ask Eljos for a recommendation</button>
+        </div>
+      </div>
+
+      <section class="panel" id="locationSearchPanel" style="margin-bottom:24px;">
+        <h3>Search by Location</h3>
+        <p class="tiny-note">Search seller listings by country, region, city, or distance from your current location.</p>
+
+        <div class="split-grid" style="margin-top:14px;">
+          <div>
+            <input id="searchCountry" type="text" placeholder="Country" />
+            <input id="searchRegion" type="text" placeholder="State / Province / Region" />
+            <input id="searchCity" type="text" placeholder="City" />
+          </div>
+          <div>
+            <select id="searchRadiusKm">
+              <option value="">Any distance</option>
+              <option value="5">Within 5 km</option>
+              <option value="10">Within 10 km</option>
+              <option value="25">Within 25 km</option>
+              <option value="50">Within 50 km</option>
+              <option value="100">Within 100 km</option>
+              <option value="250">Within 250 km</option>
+            </select>
+            <button type="button" class="button-secondary" onclick="useCurrentSearchLocation()">Use My Current Location</button>
+            <p id="searchLocationStatus" class="tiny-note"></p>
+            <input id="searchLatitude" type="hidden" />
+            <input id="searchLongitude" type="hidden" />
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+          <button type="button" onclick="searchProductsByLocation()">Search This Area</button>
+          <button type="button" class="button-secondary" onclick="clearLocationSearch()">Clear Search</button>
+        </div>
+      </section>
+
+      <div id="locationSearchResults" class="products" style="display:none; margin-bottom:24px;"></div>
+      <div id="firestoreProductList" class="products" style="margin-bottom:24px;"></div>
+      <div class="products" id="productList"></div>
+      <div id="categoryDetail" style="margin-top:24px;"></div>
+    </section>
+
+<section id="sellerDashboardView" class="view">
+  <div class="section-heading">
+    <div>
+      <h2>Seller Dashboard</h2>
+      <p>Manage your AecoRay store, products, and seller profile.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>My Store</h3>
+    <p id="sellerWelcome">Welcome to your seller dashboard.</p>
+
+<div style="margin-top:18px;">
+  <button onclick="showSellerProductForm()">Add Product</button>
+  <button class="button-secondary" onclick="loadSellerProducts()">My Products</button>
+</div>
+
+    <div id="sellerProductForm" style="display:none; margin-top:20px;">
+  <h3>Add Product</h3>
+
+  <input id="sellerProductName" type="text" placeholder="Product name" />
+
+  <input id="sellerProductPrice" type="number" step="0.01" placeholder="Price" />
+
+  <textarea id="sellerProductDescription" placeholder="Product description"></textarea>
+
+  <input id="sellerProductImage" type="text" placeholder="Image URL for now" />
+
+      <div style="margin-top:12px;">
+  <input id="sellerProductCountry" type="text" placeholder="Product country" />
+  <input id="sellerProductRegion" type="text" placeholder="State / Province / Region" />
+  <input id="sellerProductCity" type="text" placeholder="City" />
+
+  <button
+    type="button"
+    class="button-secondary"
+    onclick="useCurrentProductLocation()"
+    style="margin-top:10px;"
+  >
+    Use Current Location for This Product
+  </button>
+
+  <p id="sellerProductLocationStatus" class="tiny-note"></p>
+
+  <input id="sellerProductLatitude" type="hidden" />
+  <input id="sellerProductLongitude" type="hidden" />
+</div>
+
+  <button onclick="saveSellerProduct()">Save Product</button>
+</div>
+
+<div id="sellerProductsList" style="margin-top:20px;"></div>
+    
+    <div style="margin-top:18px;">
+      <button onclick="switchView('login')">Account & Settings</button>
+    </div>
+  </div>
+</section>
+  
+    <section id="loginView" class="view">
+      <div class="split-grid">
+        <div class="panel">
+          <h2>Account Access</h2>
+          <p class="tiny-note">Sign in or create an account using Firebase Email and Password authentication.</p>
+
+          <select id="accountRole">
+  <option value="customer">Customer</option>
+  <option value="seller">Seller</option>
+</select>
+
+          <div style="margin-top:12px;">
+  <input id="accountCountry" type="text" placeholder="Country" />
+  <input id="accountRegion" type="text" placeholder="State / Province / Region" />
+  <input id="accountCity" type="text" placeholder="City" />
+
+  <button
+    type="button"
+    class="button-secondary"
+    onclick="useCurrentAccountLocation()"
+    style="margin-top:10px;"
+  >
+    Use My Current Location
+  </button>
+
+  <p id="accountLocationStatus" class="tiny-note"></p>
+
+  <input id="accountLatitude" type="hidden" />
+  <input id="accountLongitude" type="hidden" />
+</div>
+
+          <button onclick="signIn()">Login or Create Account</button>
+     <button class="button-secondary" onclick="forgotPassword()" style="margin-top:10px;">Forgot Password?</button>
+          <div style="margin-top:18px;">
+            <button class="button-secondary" onclick="toggleAdminMode(true)"></button>
+          </div>
+          <p class="tiny-note"></p>
+        </div>
+        <div class="panel">
+          <h2>Seller & Customer Portal</h2>
+          <p class="tiny-note">Create a customer profile or apply to become a marketplace seller.</p>
+          <div id="sellerUploadRoot"></div>
+        </div>
+      </div>
+
+      <div class="section-heading" style="margin-top:28px;">
+        <div>
+          <h2>Trust, Safety & Marketplace Standards</h2>
+          <p>AECORAY is committed to transparency, responsible commerce, customer protection, and ethical marketplace practices.</p>
+        </div>
+      </div>
+      <div class="legal-grid" id="legalGrid"></div>
+    </section>
+  </div>
+
+  <div id="cartToggle" onclick="toggleCart()">🛒</div>
+  <div id="cart">
+    <button id="cartClose" onclick="closeCart()">×</button>
+    <h3>Cart</h3>
+    <ul id="cartItems"></ul>
+    <div class="promo-row">
+      <input id="couponInput" placeholder="Coupon or discount code" />
+      <button onclick="applyCoupon()">Apply</button>
+    </div>
+    <div class="promo-row">
+      <input id="giftCardInput" placeholder="Gift card code" />
+      <button onclick="applyGiftCard()">Use</button>
+    </div>
+    <p class="tiny-note" id="cartMessage">No discount applied</p>
+    <p>Subtotal: $<span id="subtotal">0.00</span></p>
+    <p>Discount: -$<span id="discountAmount">0.00</span></p>
+    <p>Gift Card: -$<span id="giftCardAmount">0.00</span></p>
+    <p>Total: $<span id="total">0.00</span></p>
+    <a href="https://buy.stripe.com/4gMdR98MT5Fe2xY3Om63K00" target="_blank" rel="noopener noreferrer"><button>Checkout</button></a>
+  </div>
+
+  <div id="aiButton">🧠</div>
+  <div id="aiChat">
+    <h4>Eljos AI 🌱</h4>
+    <div id="aiMessages"></div>
+    <input id="aiInput" placeholder="Ask Eljos..." />
+  </div>
+
+  <footer>
+    <p>Aecoray 🌱</p>
+    <p style="font-size:12px;opacity:0.7;">© All Rights Reserved</p>
+    <div class="footer-links">
+      <a href="#" onclick="switchView('login'); scrollToTop(); return false;">Terms & Conditions</a>
+      <a href="#" onclick="switchView('login'); scrollToTop(); return false;">Privacy Policy</a>
+      <a href="#" onclick="switchView('login'); scrollToTop(); return false;">Seller Terms</a>
+      <a href="#" onclick="switchView('login'); scrollToTop(); return false;">Refund Policy</a>
+    </div>
+    <div class="socials">
+      <a href="https://www.facebook.com/amerindian.ecomerce" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f"></i></a>
+      <a href="https://www.instagram.com/AMERINDIANECOMERCE" target="_blank" rel="noopener noreferrer"><i class="fab fa-instagram"></i></a>
+      <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer"><i class="fab fa-linkedin-in"></i></a>
+    </div>
+  </footer>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyDLlDWMtNLNuVXLlSNJDinFrnUMSzLpq7c",
+      authDomain: "aecoray-marketplace-sigue.firebaseapp.com",
+      projectId: "aecoray-marketplace-sigue",
+      storageBucket: "aecoray-marketplace-sigue.firebasestorage.app",
+      messagingSenderId: "340041673973",
+      appId: "1:340041673973:web:e441032c7b321606b7e9bc",
+      measurementId: "G-N96KW4R6G1"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let editingProductId = null;
+
+    const categoryDefinitions = [
+      { id: 'sustainable-fashion', icon: '👕', name: 'Sustainable Fashion', description: 'Eco-conscious apparel, accessories, and ethical style.' },
+      { id: 'eco-home', icon: '🏡', name: 'Eco Home', description: 'Beautiful sustainable items for conscious living spaces.' },
+      { id: 'zero-waste', icon: '♻️', name: 'Zero Waste', description: 'Low-impact reusable essentials for everyday life.' },
+      { id: 'organic-products', icon: '🌿', name: 'Organic Products', description: 'Natural and responsible products for wellness and lifestyle.' },
+      { id: 'environmental-jobs', icon: '💼', name: 'Environmental Jobs', description: 'Mission-driven work and hiring opportunities in sustainability.' },
+      { id: 'environmental-education', icon: '📚', name: 'Environmental Education', description: 'Learning tools, workshops, and educational opportunities.' },
+      { id: 'eco-tourism', icon: '🌍', name: 'Eco Tourism', description: 'Conscious travel experiences and regenerative adventures.' },
+      { id: 'sustainable-events', icon: '🎟️', name: 'Sustainable Events', description: 'Green gatherings, launch events, and community experiences.' },
+      { id: 'green-news', icon: '📰', name: 'Green News', description: 'Climate, sustainability, and conscious business updates.' },
+      { id: 'green-entertainment', icon: '🎬', name: 'Green Entertainment', description: 'Stories, media, and inspiring entertainment with impact.' },
+      { id: 'green-creatives', icon: '🎨', name: 'Green Creatives', description: 'Creative talent, design, and storytelling for a greener future.' },
+      { id: 'csr', icon: '🌐', name: 'Corporate Social Responsibility', description: 'Responsible business programs, partnerships, and consulting.' },
+      { id: 'aecoray-boom', icon: '🚀', name: 'AecoRay Boom', description: 'Project pools where founders and backers build impact together.' },
+      { id: 'indigenous-ecommerce', icon: '🪶', name: 'Indigenous Ecommerce', description: 'Marketplace space uplifting Indigenous entrepreneurship.' },
+      { id: 'green-tech', icon: '💻', name: 'Green Tech', description: 'Innovative technology for climate, ecosystems, and resilience.' }
+    ];
+
+    let cart = [];
+    let appliedCoupon = null;
+    let appliedGiftCard = null;
+    let aecorayFilter = 'all';
+    let activeCategory = 'green-tech';
+    let adminMode = JSON.parse(localStorage.getItem('adminMode') || 'false');
+
+    const defaultCoupons = {
+      ECO10: { type: 'percent', value: 10, label: '10% off order' },
+      GREEN20: { type: 'fixed', value: 20, label: '$20 off order' },
+      WELCOME15: { type: 'percent', value: 15, label: '15% welcome discount' }
+    };
+
+    let giftCardBalances = JSON.parse(localStorage.getItem('giftCardBalances')) || {
+      AECO25: 25,
+      AECO50: 50,
+      AECO100: 100
+    };
+
+    let products = JSON.parse(localStorage.getItem('productsData')) || [
+      { name: 'Aecoray Gift Card $25', price: 25, img: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80'], rating: 5, seller: 100, reviews: [], category: 'green-creatives', brand: 'Aecoray' },
+      { name: 'Aecoray Gift Card $50', price: 50, img: 'https://images.unsplash.com/photo-1492724441997-5dc865305da7?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1492724441997-5dc865305da7?auto=format&fit=crop&w=1200&q=80'], rating: 5, seller: 100, reviews: [], category: 'green-creatives', brand: 'Aecoray' },
+      { name: 'Aecoray Gift Card $100', price: 100, img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80'], rating: 5, seller: 100, reviews: [], category: 'green-creatives', brand: 'Aecoray' },
+      { name: 'Aecoray Reusable Bottle', price: 25, img: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=1200&q=80', images: ['https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=1200&q=80'], rating: 4, seller: 92, reviews: [], category: 'zero-waste', brand: 'Aecoray' },
+      { name: 'Aecoray Journal', price: 20, img: 'journal-1.png', images: ['journal-1.png', 'journal-2.png'], rating: 5, seller: 95, reviews: [], category: 'environmental-education', brand: 'Aecoray' }
+    ];
+
+    products = products.map((product) => {
+      const fixed = { ...product };
+      if (!fixed.images || !Array.isArray(fixed.images) || !fixed.images.length) fixed.images = [fixed.img];
+      if (fixed.name === 'Aecoray Journal') {
+        fixed.img = 'journal-1.png';
+        fixed.images = ['journal-1.png', 'journal-2.png'];
+      }
+      if (!fixed.category) fixed.category = 'green-tech';
+      if (!fixed.brand) fixed.brand = fixed.seller >= 100 ? 'Aecoray' : 'Marketplace Seller';
+      return fixed;
+    });
+
+    let sellers = JSON.parse(localStorage.getItem('sellerData')) || [
+      { name: 'EcoBrand', score: 95, description: 'Sustainable lifestyle brand', products: [0, 3], couponCode: 'ECOBRAND10', couponType: 'percent', couponValue: 10 },
+      { name: 'GreenLife', score: 92, description: 'Eco home solutions', products: [1, 4], couponCode: 'GREENLIFE5', couponType: 'fixed', couponValue: 5 }
+    ];
+
+    let aecorayListings = JSON.parse(localStorage.getItem('aecorayListings')) || [
+      {
+        id: 'aecoray-service-1',
+        title: 'Aecoray Sustainability Consulting',
+        type: 'service',
+        category: 'csr',
+        price: 150,
+        description: 'Strategic sustainability guidance for conscious brands and projects.',
+        seller: 'Aecoray',
+        images: ['https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80']
+      },
+      {
+        id: 'aecoray-event-1',
+        title: 'Aecoray Green Marketplace Launch Event',
+        type: 'event',
+        category: 'sustainable-events',
+        price: 45,
+        description: 'A community eco-innovation event for founders, creators, and conscious consumers.',
+        seller: 'Aecoray',
+        images: ['https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80']
+      },
+      {
+        id: 'aecoray-product-1',
+        title: 'Aecoray Smart Reusable Bottle',
+        type: 'product',
+        category: 'zero-waste',
+        price: 25,
+        description: 'A flagship reusable bottle designed for stylish low-waste living.',
+        seller: 'Aecoray',
+        images: ['https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=1200&q=80']
+      }
+    ];
+
+    let creatorContent = JSON.parse(localStorage.getItem('creatorContent')) || [
+      {
+        title: 'Aecoray Vision Soundscape',
+        type: 'music',
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+        description: 'A dreamy eco-tech atmosphere track for the Aecoray universe.'
+      },
+      {
+        title: 'Future of Sustainable Living',
+        type: 'video',
+        url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        description: 'A featured sustainability video section for your homepage.'
+      },
+      {
+        title: 'Aecoray Nature Gallery',
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+        description: 'A peaceful visual gallery card that blends with your brand.'
+      },
+      {
+        title: 'Why Aecoray Matters',
+        type: 'blog',
+        url: '',
+        description: 'Aecoray is designed to connect sustainability, commerce, innovation, creators, and conscious consumers in one inspiring digital ecosystem.'
+      }
+    ];
+
+    function save() {
+      localStorage.setItem('productsData', JSON.stringify(products));
+      localStorage.setItem('sellerData', JSON.stringify(sellers));
+      localStorage.setItem('giftCardBalances', JSON.stringify(giftCardBalances));
+      localStorage.setItem('creatorContent', JSON.stringify(creatorContent));
+      localStorage.setItem('aecorayListings', JSON.stringify(aecorayListings));
+      localStorage.setItem('adminMode', JSON.stringify(adminMode));
+    }
+
+    function renderStars(index, rating) {
+      let stars = '';
+      for (let i = 1; i <= 5; i += 1) {
+        stars += `<span onclick="setRating(${index},${i})">${i <= rating ? '★' : '☆'}</span>`;
+      }
+      return stars;
+    }
+
+window.saveSellerProduct = async function saveSellerProduct() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  const name = document.getElementById('sellerProductName').value.trim();
+  const price = Number(document.getElementById('sellerProductPrice').value);
+  const description = document.getElementById('sellerProductDescription').value.trim();
+  const imageUrl = document.getElementById('sellerProductImage').value.trim();
+  const country = document.getElementById('sellerProductCountry').value.trim();
+  const region = document.getElementById('sellerProductRegion').value.trim();
+  const city = document.getElementById('sellerProductCity').value.trim();
+  const latitude = Number(document.getElementById('sellerProductLatitude').value) || null;
+  const longitude = Number(document.getElementById('sellerProductLongitude').value) || null;
+
+  if (!name || !price) {
+    alert('Please enter a product name and price.');
+    return;
+  }
+
+ if (editingProductId) {
+  const productRef = doc(db, 'PRODUCTS', editingProductId);
+  const productSnapshot = await getDoc(productRef);
+
+  if (!productSnapshot.exists()) {
+    alert('Product not found.');
+    return;
+  }
+
+  const existingProduct = productSnapshot.data();
+
+  if (existingProduct.sellerId !== user.uid) {
+    alert('You can only edit your own products.');
+    return;
+  }
+
+  await updateDoc(productRef, {
+    name: name,
+    price: price,
+    description: description,
+    imageUrl: imageUrl,
+    country: country,
+    region: region,
+    city: city,
+    latitude: latitude,
+    longitude: longitude,
+    updatedAt: serverTimestamp()
+  });
+
+  editingProductId = null;
+
+} else {
+  await addDoc(collection(db, 'PRODUCTS'), {
+    sellerId: user.uid,
+    name: name,
+    price: price,
+    description: description,
+    imageUrl: imageUrl,
+    country: country,
+    region: region,
+    city: city,
+    latitude: latitude,
+    longitude: longitude,
+    createdAt: serverTimestamp()
+  });
+}
+
+  alert('Product saved successfully.');
+
+  document.getElementById('sellerProductName').value = '';
+  document.getElementById('sellerProductPrice').value = '';
+  document.getElementById('sellerProductDescription').value = '';
+  document.getElementById('sellerProductImage').value = '';
+  document.getElementById('sellerProductCountry').value = '';
+  document.getElementById('sellerProductRegion').value = '';
+  document.getElementById('sellerProductCity').value = '';
+  document.getElementById('sellerProductLatitude').value = '';
+  document.getElementById('sellerProductLongitude').value = '';
+  document.getElementById('sellerProductLocationStatus').textContent = '';
+  document.getElementById('sellerProductForm').style.display = 'none';
+
+  await loadSellerProducts();
+};
+
+window.loadSellerProducts = async function loadSellerProducts() {
+  const user = auth.currentUser;
+  const list = document.getElementById('sellerProductsList');
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  if (!list) return;
+
+  list.innerHTML = '<p>Loading your products...</p>';
+
+  const productsQuery = query(
+    collection(db, 'PRODUCTS'),
+    where('sellerId', '==', user.uid)
+  );
+
+  const snapshot = await getDocs(productsQuery);
+
+  if (snapshot.empty) {
+    list.innerHTML = '<p>You have not added any products yet.</p>';
+    return;
+  }
+
+  list.innerHTML = '';
+
+  snapshot.forEach((productDoc) => {
+    const product = productDoc.data();
+
+   list.innerHTML += `
+  <div class="panel" style="margin-top:12px;">
+    <h3>${product.name}</h3>
+    <p>$${Number(product.price).toFixed(2)}</p>
+    <p>${product.description || ''}</p>
+    <p class="tiny-note">📍 ${[product.city, product.region, product.country].filter(Boolean).join(', ') || 'Location not set'}</p>
+
+    <button onclick="editSellerProduct('${productDoc.id}')">
+      Edit
+    </button>
+
+    <button class="button-secondary" onclick="deleteSellerProduct('${productDoc.id}')">
+      Delete
+    </button>
+  </div>
+`;
+  });
+};
+
+window.deleteSellerProduct = async function deleteSellerProduct(productId) {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  const productRef = doc(db, 'PRODUCTS', productId);
+  const productSnapshot = await getDoc(productRef);
+
+  if (!productSnapshot.exists()) {
+    alert('Product not found.');
+    return;
+  }
+
+  const product = productSnapshot.data();
+
+  if (product.sellerId !== user.uid) {
+    alert('You can only delete your own products.');
+    return;
+  }
+
+  const confirmed = confirm('Are you sure you want to delete this product?');
+
+  if (!confirmed) return;
+
+  await deleteDoc(productRef);
+
+  alert('Product deleted.');
+
+  await loadSellerProducts();
+};
+
+window.editSellerProduct = async function editSellerProduct(productId) {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert('Please log in as a seller first.');
+    return;
+  }
+
+  const productRef = doc(db, 'PRODUCTS', productId);
+  const productSnapshot = await getDoc(productRef);
+
+  if (!productSnapshot.exists()) {
+    alert('Product not found.');
+    return;
+  }
+
+  const product = productSnapshot.data();
+
+  if (product.sellerId !== user.uid) {
+    alert('You can only edit your own products.');
+    return;
+  }
+
+  editingProductId = productId;
+
+  document.getElementById('sellerProductName').value = product.name || '';
+  document.getElementById('sellerProductPrice').value = product.price || '';
+  document.getElementById('sellerProductDescription').value = product.description || '';
+  document.getElementById('sellerProductImage').value = product.imageUrl || '';
+  document.getElementById('sellerProductCountry').value = product.country || '';
+  document.getElementById('sellerProductRegion').value = product.region || '';
+  document.getElementById('sellerProductCity').value = product.city || '';
+  document.getElementById('sellerProductLatitude').value = product.latitude ?? '';
+  document.getElementById('sellerProductLongitude').value = product.longitude ?? '';
+  document.getElementById('sellerProductLocationStatus').textContent =
+    [product.city, product.region, product.country].filter(Boolean).join(', ');
+
+  document.getElementById('sellerProductForm').style.display = 'block';
+};
+    
+window.showSellerProductForm = function showSellerProductForm() {
+  const form = document.getElementById('sellerProductForm');
+
+  if (!form) return;
+
+  if (form.style.display === 'none' || form.style.display === '') {
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
+};
+    
+    window.switchView = function switchView(viewName, navLink) {
+      document.querySelectorAll('section.view').forEach((view) => view.classList.remove('active'));
+      const target = document.getElementById(`${viewName}View`);
+      if (target) target.classList.add('active');
+      document.querySelectorAll('nav a').forEach((link) => link.classList.remove('active'));
+      if (navLink) {
+        navLink.classList.add('active');
+      } else {
+        const match = Array.from(document.querySelectorAll('nav a')).find((link) => link.textContent.trim().toLowerCase() === viewName);
+        if (match) match.classList.add('active');
+      }
+    };
+
+    window.scrollToTop = function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.toggleAdminMode = function toggleAdminMode(force) {
+      adminMode = typeof force === 'boolean' ? force : !adminMode;
+      const panel = document.getElementById('adminPanel');
+      if (panel) panel.classList.toggle('visible', adminMode);
+      save();
+      if (adminMode) switchView('login');
+    };
+
+    window.useCurrentAccountLocation = function useCurrentAccountLocation() {
+
+    
+  const status = document.getElementById('accountLocationStatus');
+
+  if (!navigator.geolocation) {
+    status.textContent = 'Geolocation is not supported by this browser.';
+    return;
+  }
+
+  status.textContent = 'Getting your location...';
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      document.getElementById('accountLatitude').value = latitude;
+      document.getElementById('accountLongitude').value = longitude;
+
+      fetch(
+  `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+)
+  .then((response) => response.json())
+  .then((locationData) => {
+    document.getElementById('accountCountry').value =
+      locationData.countryName || '';
+
+    document.getElementById('accountRegion').value =
+      locationData.principalSubdivision || '';
+
+    document.getElementById('accountCity').value =
+      locationData.city || locationData.locality || '';
+
+    status.textContent =
+      `Location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+  })
+  .catch((error) => {
+    console.error(error);
+    status.textContent =
+      'Coordinates saved, but the city and country could not be detected automatically.';
+  });
+
+    },
+    (error) => {
+      console.error(error);
+      status.textContent = 'Could not get your location. You can enter it manually instead.';
+    }
+  );
+};
+
+    window.useCurrentProductLocation = function useCurrentProductLocation() {
+      const status = document.getElementById('sellerProductLocationStatus');
+
+      if (!navigator.geolocation) {
+        status.textContent = 'Geolocation is not supported by this browser.';
+        return;
+      }
+
+      status.textContent = 'Getting product location...';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+
+          document.getElementById('sellerProductLatitude').value = latitude;
+          document.getElementById('sellerProductLongitude').value = longitude;
+
+          fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+          )
+            .then((response) => response.json())
+            .then((locationData) => {
+              document.getElementById('sellerProductCountry').value = locationData.countryName || '';
+              document.getElementById('sellerProductRegion').value = locationData.principalSubdivision || '';
+              document.getElementById('sellerProductCity').value = locationData.city || locationData.locality || '';
+              status.textContent =
+                `Product location found: ${locationData.city || locationData.locality || ''}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+            })
+            .catch((error) => {
+              console.error(error);
+              status.textContent =
+                'Coordinates saved, but the product city and country could not be detected automatically.';
+            });
+        },
+        (error) => {
+          console.error(error);
+          status.textContent =
+            'Could not get the product location. You can enter it manually instead.';
+        }
+      );
+    };
+
+    window.signIn = async function signIn() {
+  const email = prompt('Enter email');
+  const password = prompt('Enter password');
+
+  if (!email || !password) return;
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+    const userDoc = await getDoc(doc(db, 'USERS', userCredential.user.uid));
+const userData = userDoc.data();
+const userRole = userData?.role;
+
+    if (userRole === 'seller') {
+ switchView('sellerDashboard');
+  document.getElementById('authStatus').textContent = `Seller logged in as ${email}`;
+} else {
+  switchView('home');
+  document.getElementById('authStatus').textContent = `Customer logged in as ${email}`;
+}
+
+  } catch (err) {
+    try {
+      const userCredential =
+        await createUserWithEmailAndPassword(auth, email, password);
+
+      await setDoc(
+        doc(db, 'USERS', userCredential.user.uid),
+        {
+          email: email,
+          role: document.getElementById('accountRole').value,
+          country: document.getElementById('accountCountry').value.trim(),
+region: document.getElementById('accountRegion').value.trim(),
+city: document.getElementById('accountCity').value.trim(),
+latitude: Number(document.getElementById('accountLatitude').value) || null,
+longitude: Number(document.getElementById('accountLongitude').value) || null,
+          createdAt: serverTimestamp()
+        }
+      );
+
+ const newUserRole = document.getElementById('accountRole').value;
+
+if (newUserRole === 'seller') {
+  switchView('sellerDashboard');
+} else {
+  switchView('home');
+}
+      
+      document.getElementById('authStatus').textContent =
+        `Account created for ${email}`;
+
+      alert('Account created 🌱');
+
+    } catch (createErr) {
+      console.error(createErr);
+      alert('Login or account creation failed. Please check your email and password.');
+    }
+  }
+};
+window.forgotPassword = async function forgotPassword() {
+  const email = prompt('Enter the email address for your AecoRay account');
+
+  if (!email) return;
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert('Password reset email sent. Please check your inbox and spam folder.');
+  } catch (error) {
+    console.error(error);
+    alert('We could not send the reset email. Please check the email address and try again.');
+  }
+};
+    window.setRating = function setRating(index, value) {
+      products[index].rating = value;
+      save();
+      renderProducts();
+      renderDynamicSections();
+      autoAI();
+      renderCategoryDetail();
+    };
+
+    window.addToCart = function addToCart(name, price) {
+      cart.push({ n: name, p: Number(price) });
+      renderCart();
+    };
+
+    function getDiscountedPrice(price) {
+      const base = Number(price || 0);
+      if (!appliedCoupon) return base;
+      if (appliedCoupon.type === 'percent') return Math.max(0, Number((base - (base * appliedCoupon.value / 100)).toFixed(2)));
+      return Math.max(0, Number((base - appliedCoupon.value).toFixed(2)));
+    }
+
+    window.applyCoupon = function applyCoupon() {
+      const code = (document.getElementById('couponInput').value || '').trim().toUpperCase();
+      if (!code) return;
+      const sellerCoupon = sellers.find((seller) => String(seller.couponCode || '').toUpperCase() === code);
+      if (defaultCoupons[code]) {
+        appliedCoupon = defaultCoupons[code];
+        document.getElementById('cartMessage').textContent = `Coupon applied: ${defaultCoupons[code].label}`;
+      } else if (sellerCoupon) {
+        appliedCoupon = { type: sellerCoupon.couponType || 'percent', value: Number(sellerCoupon.couponValue || 0), label: `${sellerCoupon.name} seller discount` };
+        document.getElementById('cartMessage').textContent = `Seller coupon applied: ${sellerCoupon.name}`;
+      } else {
+        appliedCoupon = null;
+        document.getElementById('cartMessage').textContent = 'Coupon not found';
+      }
+      renderCart();
+    };
+
+    window.applyGiftCard = function applyGiftCard() {
+      const code = (document.getElementById('giftCardInput').value || '').trim().toUpperCase();
+      if (!code) return;
+      const balance = Number(giftCardBalances[code] || 0);
+      if (balance > 0) {
+        appliedGiftCard = { code, balance };
+        document.getElementById('cartMessage').textContent = `Gift card applied: $${balance} available`;
+      } else {
+        appliedGiftCard = null;
+        document.getElementById('cartMessage').textContent = 'Gift card not found or balance is zero';
+      }
+      renderCart();
+    };
+
+    window.removeFromCart = function removeFromCart(index) {
+      cart.splice(index,1);
+      renderCart();
+    };
+
+    window.toggleCart = function toggleCart() {
+      document.getElementById('cart').classList.toggle('open');
+    };
+
+    window.closeCart = function closeCart() {
+      document.getElementById('cart').classList.remove('open');
+    };
+
+    window.addReview = async function addReview(index) {
+      const input = document.getElementById(`review${index}`);
+      if (!input || !input.value.trim()) return;
+      const text = input.value.trim();
+      try {
+        await addDoc(collection(db, 'reviews'), { product: products[index].name, text, createdAt: new Date().toISOString() });
+        products[index].reviews.push(text);
+        input.value = '';
+        save();
+        renderProducts();
+        renderCategoryDetail();
+        alert('Review saved globally 🌍');
+      } catch (error) {
+        products[index].reviews.push(text);
+        input.value = '';
+        save();
+        renderProducts();
+        renderCategoryDetail();
+        alert('Review saved locally for now 🌱');
+      }
+    };
+
+    window.addSellerProduct = function addSellerProduct() {
+      const sellerName = document.getElementById('sellerName').value.trim();
+      const name = document.getElementById('productNameUpload').value.trim();
+      const price = document.getElementById('productPriceUpload').value.trim();
+      const img = document.getElementById('productImageUpload').value.trim();
+      const category = document.getElementById('sellerCategoryUpload').value;
+      const sellerCodeInput = (document.getElementById('sellerCouponCode').value || '').trim().toUpperCase();
+      const sellerDiscountType = (document.getElementById('sellerDiscountType').value || 'percent').trim().toLowerCase();
+      const sellerDiscountValue = Number(document.getElementById('sellerDiscountValue').value || 0);
+      if (!sellerName || !name || !price) {
+        alert('Please fill all fields');
+        return;
+      }
+      const imageList = img ? img.split(',').map((entry) => entry.trim()).filter(Boolean) : [];
+      const newProduct = {
+        name,
+        price: Number(price),
+        img: imageList[0] || 'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=1200&q=80',
+        images: imageList.length ? imageList : ['https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=1200&q=80'],
+        rating: 5,
+        seller: 90,
+        reviews: [],
+        category,
+        brand: sellerName
+      };
+      products.push(newProduct);
+      const newIndex = products.length - 1;
+      const sellerIndex = sellers.findIndex((seller) => seller.name.toLowerCase() === sellerName.toLowerCase());
+      const generatedCode = `${sellerName.replace(/\s+/g, '').toUpperCase()}10`;
+      if (sellerIndex === -1) {
+        sellers.push({ name: sellerName, score: 90, description: 'New eco seller', products: [newIndex], couponCode: sellerCodeInput || generatedCode, couponType: sellerDiscountType === 'fixed' ? 'fixed' : 'percent', couponValue: sellerDiscountValue || 10 });
+      } else {
+        sellers[sellerIndex].products.push(newIndex);
+        if (sellerCodeInput) sellers[sellerIndex].couponCode = sellerCodeInput;
+        sellers[sellerIndex].couponType = sellerDiscountType === 'fixed' ? 'fixed' : 'percent';
+        sellers[sellerIndex].couponValue = sellerDiscountValue || sellers[sellerIndex].couponValue || 10;
+      }
+      save();
+      renderProducts();
+      renderDynamicSections();
+      renderCategoryGrid();
+      renderCategoryDetail();
+      autoAI();
+      renderCart();
+      alert('Product added successfully 🌱');
+    };
+
+    window.openSeller = function openSeller(index) {
+      const seller = sellers[index];
+      const sellerProducts = seller.products.map((productIndex) => products[productIndex]).filter(Boolean).map((product) => {
+        const gallery = (product.images || [product.img]).map((image) => `<img src="${image}" alt="${product.name}" />`).join('');
+        return `<div class="product"><div class="product-gallery">${gallery}</div><h4>${product.name}</h4><p>$${product.price}</p></div>`;
+      }).join('');
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `<div class="modal-card"><h2>${seller.name}</h2><p>${seller.description}</p><p>Seller Score: ${seller.score}/100</p><div class="discount-tag">Code: ${seller.couponCode || 'NONE'}</div><h3 style="margin-top:15px;">Products</h3><div class="products">${sellerProducts}</div><button style="margin-top:15px;" onclick="this.closest('.modal-overlay').remove()">Close</button></div>`;
+      document.body.appendChild(modal);
+    };
+
+    function renderCart() {
+      const cartItems = document.getElementById('cartItems');
+      cartItems.innerHTML = cart.map((item,index) => `<li>${item.n} — $${Number(item.p).toFixed(2)} <button onclick="removeFromCart(${index})" style="margin-left:8px;padding:4px 8px;">Remove</button></li>`).join('');
+      const subtotal = cart.reduce((sum, item) => sum + Number(item.p), 0);
+      const discountedSubtotal = cart.reduce((sum, item) => sum + getDiscountedPrice(item.p), 0);
+      const discount = Number((subtotal - discountedSubtotal).toFixed(2));
+      const giftCardAmount = appliedGiftCard ? Math.min(discountedSubtotal, Number(appliedGiftCard.balance)) : 0;
+      const total = Math.max(0, Number((discountedSubtotal - giftCardAmount).toFixed(2)));
+      document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('discountAmount').textContent = discount.toFixed(2);
+      document.getElementById('giftCardAmount').textContent = giftCardAmount.toFixed(2);
+      document.getElementById('total').textContent = total.toFixed(2);
+    }
+
+    function normalizeLocationText(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function distanceBetweenKm(lat1, lon1, lat2, lon2) {
+      const toRadians = (degrees) => degrees * Math.PI / 180;
+      const earthRadiusKm = 6371;
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+      return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function renderFirestoreProductCards(items, target) {
+      if (!target) return;
+      if (!items.length) {
+        target.innerHTML = '<div class="product"><h3>No seller products found</h3><p>Try a different country, region, city, or radius.</p></div>';
+        return;
+      }
+
+      target.innerHTML = items.map(({ product, distanceKm }) => {
+        const image = product.imageUrl
+          ? `<img src="${product.imageUrl}" alt="${product.name || 'Seller product'}" />`
+          : '';
+        const location = [product.city, product.region, product.country].filter(Boolean).join(', ');
+        const distance = Number.isFinite(distanceKm) ? ` · ${distanceKm.toFixed(1)} km away` : '';
+        const safeName = JSON.stringify(product.name || 'Seller product');
+        const safePrice = Number(product.price || 0);
+        return `<div class="product">${image}<div class="discount-tag">Seller listing</div><h3>${product.name || 'Seller product'}</h3><p>$${safePrice.toFixed(2)}</p><p>${product.description || ''}</p><p class="tiny-note">📍 ${location || 'Location not set'}${distance}</p><button onclick='addToCart(${safeName}, ${safePrice})'>Add to Cart</button></div>`;
+      }).join('');
+    }
+
+    async function getFirestoreSellerProducts() {
+      const snapshot = await getDocs(collection(db, 'PRODUCTS'));
+      return snapshot.docs.map((productDoc) => ({
+        id: productDoc.id,
+        product: productDoc.data()
+      }));
+    }
+
+    async function loadPublicSellerProducts() {
+      const target = document.getElementById('firestoreProductList');
+      if (!target) return;
+      try {
+        const items = await getFirestoreSellerProducts();
+        renderFirestoreProductCards(items.map((entry) => ({ ...entry, distanceKm: null })), target);
+      } catch (error) {
+        console.error(error);
+        target.innerHTML = '<div class="product"><p>Seller listings are temporarily unavailable.</p></div>';
+      }
+    }
+
+    window.useCurrentSearchLocation = function useCurrentSearchLocation() {
+      const status = document.getElementById('searchLocationStatus');
+
+      if (!navigator.geolocation) {
+        status.textContent = 'Geolocation is not supported by this browser.';
+        return;
+      }
+
+      status.textContent = 'Getting your search location...';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          document.getElementById('searchLatitude').value = latitude;
+          document.getElementById('searchLongitude').value = longitude;
+
+          fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+            .then((response) => response.json())
+            .then((locationData) => {
+              document.getElementById('searchCountry').value = locationData.countryName || '';
+              document.getElementById('searchRegion').value = locationData.principalSubdivision || '';
+              document.getElementById('searchCity').value = locationData.city || locationData.locality || '';
+              status.textContent = `Searching near ${locationData.city || locationData.locality || 'your location'}, ${locationData.principalSubdivision || ''}, ${locationData.countryName || ''}`;
+            })
+            .catch((error) => {
+              console.error(error);
+              status.textContent = 'Coordinates saved. You can still search by radius.';
+            });
+        },
+        (error) => {
+          console.error(error);
+          status.textContent = 'Could not access your location. You can still search by country, region, or city.';
+        }
+      );
+    };
+
+    window.searchProductsByLocation = async function searchProductsByLocation() {
+      const country = normalizeLocationText(document.getElementById('searchCountry').value);
+      const region = normalizeLocationText(document.getElementById('searchRegion').value);
+      const city = normalizeLocationText(document.getElementById('searchCity').value);
+      const radiusKm = Number(document.getElementById('searchRadiusKm').value || 0);
+      const searchLatitude = Number(document.getElementById('searchLatitude').value);
+      const searchLongitude = Number(document.getElementById('searchLongitude').value);
+      const hasSearchCoordinates = Number.isFinite(searchLatitude) && Number.isFinite(searchLongitude) &&
+        document.getElementById('searchLatitude').value !== '' && document.getElementById('searchLongitude').value !== '';
+
+      if (radiusKm && !hasSearchCoordinates) {
+        alert('To search by radius, first click Use My Current Location. You can still search manually by country, region, or city without a radius.');
+        return;
+      }
+
+      const resultsTarget = document.getElementById('locationSearchResults');
+      const localProductsTarget = document.getElementById('productList');
+      const firestoreTarget = document.getElementById('firestoreProductList');
+      const categoryTarget = document.getElementById('categoryDetail');
+      resultsTarget.style.display = 'grid';
+      resultsTarget.innerHTML = '<div class="product"><p>Searching seller listings...</p></div>';
+      if (localProductsTarget) localProductsTarget.style.display = 'none';
+      if (firestoreTarget) firestoreTarget.style.display = 'none';
+      if (categoryTarget) categoryTarget.style.display = 'none';
+
+      try {
+        const items = await getFirestoreSellerProducts();
+        const filtered = items.map((entry) => {
+          const product = entry.product;
+          const productLatitude = Number(product.latitude);
+          const productLongitude = Number(product.longitude);
+          const hasProductCoordinates = Number.isFinite(productLatitude) && Number.isFinite(productLongitude) &&
+            product.latitude !== null && product.latitude !== undefined && product.longitude !== null && product.longitude !== undefined;
+          const distanceKm = hasSearchCoordinates && hasProductCoordinates
+            ? distanceBetweenKm(searchLatitude, searchLongitude, productLatitude, productLongitude)
+            : null;
+          return { ...entry, distanceKm };
+        }).filter(({ product, distanceKm }) => {
+          if (country && !normalizeLocationText(product.country).includes(country)) return false;
+          if (region && !normalizeLocationText(product.region).includes(region)) return false;
+          if (city && !normalizeLocationText(product.city).includes(city)) return false;
+          if (radiusKm && (!Number.isFinite(distanceKm) || distanceKm > radiusKm)) return false;
+          return true;
+        }).sort((a, b) => {
+          if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
+          return 0;
+        });
+
+        renderFirestoreProductCards(filtered, resultsTarget);
+      } catch (error) {
+        console.error(error);
+        resultsTarget.innerHTML = '<div class="product"><p>Location search is temporarily unavailable. Please try again.</p></div>';
+      }
+    };
+
+    window.clearLocationSearch = function clearLocationSearch() {
+      ['searchCountry', 'searchRegion', 'searchCity', 'searchLatitude', 'searchLongitude'].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+      });
+      const radius = document.getElementById('searchRadiusKm');
+      if (radius) radius.value = '';
+      const status = document.getElementById('searchLocationStatus');
+      if (status) status.textContent = '';
+      const resultsTarget = document.getElementById('locationSearchResults');
+      if (resultsTarget) {
+        resultsTarget.innerHTML = '';
+        resultsTarget.style.display = 'none';
+      }
+      const localProductsTarget = document.getElementById('productList');
+      const firestoreTarget = document.getElementById('firestoreProductList');
+      const categoryTarget = document.getElementById('categoryDetail');
+      if (localProductsTarget) localProductsTarget.style.display = 'grid';
+      if (firestoreTarget) firestoreTarget.style.display = 'grid';
+      if (categoryTarget) categoryTarget.style.display = 'block';
+    };
+
+    window.recommendBest = function recommendBest() {
+      const best = [...products].sort((a, b) => b.rating - a.rating)[0];
+      if (best) alert(`🧠 Eljos recommends: ${best.name} with ${best.rating}⭐ and seller score ${best.seller}/100`);
+    };
+
+    window.addAecorayListing = function addAecorayListing() {
+      const title = document.getElementById('aecorayTitle').value.trim();
+      const type = document.getElementById('aecorayType').value;
+      const category = document.getElementById('aecorayCategory').value;
+      const price = Number(document.getElementById('aecorayPrice').value || 0);
+      const description = document.getElementById('aecorayDescription').value.trim();
+      const rawImages = document.getElementById('aecorayImages').value.trim();
+      if (!title || !description) {
+        alert('Please add a title and description for your Aecoray listing');
+        return;
+      }
+      const imageList = rawImages ? rawImages.split(',').map((entry) => entry.trim()).filter(Boolean) : ['https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=1200&q=80'];
+      const listing = { id: `aecoray-${Date.now()}`, title, type, category, price, description, seller: 'Aecoray', images: imageList };
+      aecorayListings.unshift(listing);
+      products.unshift({ id: listing.id, name: title, price, img: imageList[0], images: imageList, rating: 5, seller: 100, reviews: [], listingType: type, category, brand: 'Aecoray' });
+      let aecoraySeller = sellers.find((seller) => seller.name === 'Aecoray');
+      if (!aecoraySeller) {
+        aecoraySeller = { name: 'Aecoray', score: 100, description: 'Official Aecoray products, services, and events.', products: [], couponCode: 'AECORAY10', couponType: 'percent', couponValue: 10 };
+        sellers.unshift(aecoraySeller);
+      }
+      aecoraySeller.products = products.map((product, index) => ({ product, index })).filter((entry) => entry.product.brand === 'Aecoray' || entry.product.seller === 100).map((entry) => entry.index);
+      save();
+      renderAecorayListings();
+      renderProducts();
+      renderDynamicSections();
+      renderCategoryGrid();
+      renderCategoryDetail();
+      autoAI();
+      document.getElementById('aecorayTitle').value = '';
+      document.getElementById('aecorayType').value = 'product';
+      document.getElementById('aecorayPrice').value = '';
+      document.getElementById('aecorayImages').value = '';
+      document.getElementById('aecorayDescription').value = '';
+      alert('Your Aecoray listing is live on the page 🌱');
+    };
+
+    window.setAecorayFilter = function setAecorayFilter(type) {
+      aecorayFilter = type;
+      document.querySelectorAll('.filter-chip').forEach((chip) => chip.classList.remove('active'));
+      const active = document.getElementById(`filter-${type}`);
+      if (active) active.classList.add('active');
+      renderAecorayListings();
+    };
+
+    function renderAecorayListings() {
+      const target = document.getElementById('aecorayListings');
+      if (!target) return;
+      const filtered = aecorayFilter === 'all' ? aecorayListings : aecorayListings.filter((item) => item.type === aecorayFilter);
+      if (!filtered.length) {
+        target.innerHTML = `<div class="product"><h3>No Aecoray ${aecorayFilter === 'all' ? 'listings' : `${aecorayFilter}s`} yet</h3><p>Add a new listing above and it will appear here.</p></div>`;
+        return;
+      }
+      target.innerHTML = filtered.map((item) => {
+        const gallery = (item.images && item.images.length ? item.images : ['https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=1200&q=80']).map((image) => `<img src="${image}" alt="${item.title}" />`).join('');
+        const itemLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+        const safeTitle = JSON.stringify(item.title);
+        const safePrice = Number(item.price || 0);
+        return `<div class="product"><div class="product-gallery">${gallery}</div><div class="listing-meta"><div class="discount-tag">Aecoray ${itemLabel}</div><div class="seller-score">Seller: Aecoray</div></div><h3>${item.title}</h3><p>${item.description}</p><p>$${safePrice.toFixed(2)}</p><button onclick='addToCart(${safeTitle}, ${safePrice})'>${item.type === 'service' ? 'Hire Now' : 'Add to Cart'}</button></div>`;
+      }).join('');
+    }
+
+    function renderProducts() {
+      const list = document.getElementById('productList');
+      if (!list) return;
+      list.innerHTML = products.map((product, index) => {
+        const gallery = (product.images || [product.img]).map((image) => `<img src="${image}" alt="${product.name}" />`).join('');
+        const reviewsHtml = (product.reviews || []).slice(-3).map((review) => `<div class="review">• ${review}</div>`).join('');
+        return `<div class="product"><div class="product-gallery">${gallery}</div><div class="discount-tag">${product.brand || 'Marketplace'} · ${(product.category || 'general').replace(/-/g, ' ')}</div><h3>${product.name}</h3><p>$${Number(product.price).toFixed(2)}</p><div class="stars">${renderStars(index, product.rating || 0)}</div><div class="seller-score">Seller score: ${product.seller || 0}/100</div><button onclick='addToCart(${JSON.stringify(product.name)}, ${Number(product.price)})'>Add to Cart</button><div class="review-box"><input id="review${index}" placeholder="Add written review" /><button onclick="addReview(${index})">Submit Review</button>${reviewsHtml}</div></div>`;
+      }).join('');
+    }
+
+    function renderDynamicSections() {
+      const target = document.getElementById('dynamicSections');
+      const top = [...products].sort((a, b) => b.rating - a.rating).slice(0, 3);
+      const recommended = [...products].sort((a, b) => b.seller - a.seller).slice(0, 3);
+      const sellersHtml = sellers.map((seller, index) => `<div class="product" onclick="openSeller(${index})"><h3>${seller.name}</h3><p>${seller.description}</p><p>Score: ${seller.score}/100</p><div class="discount-tag">Code: ${seller.couponCode || 'NONE'}</div></div>`).join('');
+      target.innerHTML = `
+        <div class="section-heading"><div><h2>Top Rated</h2><p>Your strongest product signals at a glance.</p></div></div>
+        <div class="products">${top.map((product) => { const gallery = (product.images || [product.img]).map((image) => `<img src="${image}" alt="${product.name}" />`).join(''); return `<div class="product"><div class="product-gallery">${gallery}</div><h3>${product.name}</h3><p>${product.rating}⭐</p></div>`; }).join('')}</div>
+        <div class="section-heading"><div><h2>Recommended for You</h2><p>High-trust listings surfaced by seller strength.</p></div></div>
+        <div class="products">${recommended.map((product) => { const gallery = (product.images || [product.img]).map((image) => `<img src="${image}" alt="${product.name}" />`).join(''); return `<div class="product"><div class="product-gallery">${gallery}</div><h3>${product.name}</h3><p>Seller Score: ${product.seller}</p></div>`; }).join('')}</div>
+        <div class="section-heading"><div><h2>Sellers</h2><p>Open seller profiles and browse their listings.</p></div></div>
+        <div class="products">${sellersHtml}</div>`;
+    }
+
+    function renderCategoryGrid() {
+      const grid = document.getElementById('categoryGrid');
+      const aecoraySelect = document.getElementById('aecorayCategory');
+      const sellerRoot = document.getElementById('sellerUploadRoot');
+      if (grid) grid.innerHTML = categoryDefinitions.map((category) => `<div class="category" onclick="openCategory('${category.id}')"><div><div class="icon">${category.icon}</div><h3>${category.name}</h3><p>${category.description}</p></div><div class="discount-tag">Open category</div></div>`).join('');
+      if (aecoraySelect) aecoraySelect.innerHTML = categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
+      if (sellerRoot) {
+        sellerRoot.innerHTML = `<div class="product"><h3>Seller Upload</h3><input id="sellerName" placeholder="Seller Name" /><input id="productNameUpload" placeholder="Product Name" /><input id="productPriceUpload" placeholder="Price" /><select id="sellerCategoryUpload">${categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('')}</select><input id="productImageUpload" placeholder="Image URL or multiple URLs separated by commas" /><input id="sellerCouponCode" placeholder="Seller coupon code (optional)" /><select id="sellerDiscountType"><option value="percent">Percent discount</option><option value="fixed">Fixed amount discount</option></select><input id="sellerDiscountValue" placeholder="Discount value" /><button onclick="addSellerProduct()">Add Product</button></div>`;
+      }
+    }
+
+    window.openCategory = function openCategory(categoryId) {
+      activeCategory = categoryId;
+      switchView('shop');
+      renderCategoryDetail();
+      scrollToTop();
+    };
+
+    function renderCategoryDetail() {
+      const target = document.getElementById('categoryDetail');
+      if (!target) return;
+      const category = categoryDefinitions.find((item) => item.id === activeCategory) || categoryDefinitions[0];
+      const aecorayItems = aecorayListings.filter((item) => item.category === category.id);
+      const sellerItems = products.filter((item) => item.category === category.id && item.brand !== 'Aecoray');
+      target.innerHTML = `<section class="panel"><div class="section-heading"><div><h2>${category.icon} ${category.name}</h2><p>${category.description}</p></div><div class="discount-tag">Prototype payment enabled</div></div><div class="section-heading"><div><h2>Aecoray in this category</h2><p>Official Aecoray products, services, and events for this category.</p></div></div><div class="products">${aecorayItems.length ? aecorayItems.map((item) => { const gallery = (item.images || []).map((image) => `<img src="${image}" alt="${item.title}" />`).join(''); return `<div class="product"><div class="product-gallery">${gallery}</div><div class="discount-tag">Aecoray ${item.type}</div><h3>${item.title}</h3><p>${item.description}</p><p>$${Number(item.price || 0).toFixed(2)}</p><button onclick='addToCart(${JSON.stringify(item.title)}, ${Number(item.price || 0)})'>${item.type === 'service' ? 'Hire Now' : 'Buy Now'}</button></div>`; }).join('') : `<div class="product"><h3>No Aecoray listings here yet</h3><p>Add one through Admin Mode.</p></div>`}</div><div class="section-heading"><div><h2>Seller listings in this category</h2><p>Third-party sellers can add products under each category.</p></div></div><div class="products">${sellerItems.length ? sellerItems.map((item) => { const gallery = (item.images || [item.img]).map((image) => `<img src="${image}" alt="${item.name}" />`).join(''); return `<div class="product"><div class="product-gallery">${gallery}</div><div class="seller-score">Seller: ${item.brand || 'Marketplace seller'}</div><h3>${item.name}</h3><p>$${Number(item.price || 0).toFixed(2)}</p><button onclick='addToCart(${JSON.stringify(item.name)}, ${Number(item.price || 0)})'>Buy Now</button></div>`; }).join('') : `<div class="product"><h3>No seller listings yet</h3><p>Sellers can add products in Login view.</p></div>`}</div></section>`;
+    }
+
+    window.addCreatorContent = function addCreatorContent() {
+      const title = document.getElementById('creatorTitle').value.trim();
+      const type = document.getElementById('creatorType').value;
+      const url = document.getElementById('creatorUrl').value.trim();
+      const description = document.getElementById('creatorDescription').value.trim();
+      if (!title || !description) {
+        alert('Please add a title and description');
+        return;
+      }
+      creatorContent.unshift({ title, type, url, description });
+      save();
+      renderCreatorGallery();
+      document.getElementById('creatorTitle').value = '';
+      document.getElementById('creatorUrl').value = '';
+      document.getElementById('creatorDescription').value = '';
+      alert('Creator content published 🌱');
+    };
+
+    function renderCreatorGallery() {
+      const gallery = document.getElementById('creatorGallery');
+      if (!gallery) return;
+      gallery.innerHTML = creatorContent.map((item) => {
+        if (item.type === 'music') return `<div class="product audio-card"><h3>${item.title}</h3><p>${item.description}</p><audio controls src="${item.url}"></audio></div>`;
+        if (item.type === 'video') return `<div class="product video-card"><h3>${item.title}</h3><p>${item.description}</p><video controls src="${item.url}"></video></div>`;
+        if (item.type === 'image') return `<div class="product"><img src="${item.url}" alt="${item.title}" /><h3>${item.title}</h3><p>${item.description}</p></div>`;
+        return `<div class="product blog-card"><h3>${item.title}</h3><p>${item.description}</p></div>`;
+      }).join('');
+    }
+
+    function renderLegalPages() {
+      const legalItems = [
+        { title: 'Terms and Conditions', text: 'By using AECORAY, users agree to provide accurate information, respect intellectual property, conduct business ethically, and comply with applicable laws. AECORAY may remove content or accounts that violate marketplace standards.' },
+        { title: 'Privacy Policy', text: 'AECORAY may collect account, seller, transaction, and usage information to operate the platform, improve services, enhance security, and support customers. AECORAY does not sell personal information.' },
+        { title: 'Seller Terms', text: 'Sellers agree to provide accurate listings, maintain professional communication, fulfill commitments, and comply with applicable laws and marketplace standards.' },
+        { title: 'Refund and Cancellation', text: 'Refund and cancellation eligibility may vary by product, service, event, or seller. Customers should review listing-specific policies before purchase.' }
+      ];
+      const grid = document.getElementById('legalGrid');
+      if (!grid) return;
+      grid.innerHTML = legalItems.map((item) => `<div class="legal-card"><h3>${item.title}</h3><p>${item.text}</p></div>`).join('');
+    }
+
+    function autoAI() {
+      const best = [...products].sort((a, b) => ((b.rating || 0) + (b.seller || 0) / 20) - ((a.rating || 0) + (a.seller || 0) / 20))[0];
+      document.getElementById('aiAutoText').textContent = best ? `Eljos suggests ${best.name} because it has strong ratings and trusted seller performance.` : 'Start adding products to get AI suggestions.';
+    }
+
+    function runTests() {
+      const results = [];
+      results.push({ name: 'sellers declared once', pass: Array.isArray(sellers) });
+      appliedCoupon = { type: 'percent', value: 10 };
+      results.push({ name: '10 percent discount on $100 gives $90', pass: getDiscountedPrice(100) === 90 });
+      appliedCoupon = { type: 'fixed', value: 20 };
+      results.push({ name: 'fixed discount never goes below zero', pass: getDiscountedPrice(10) === 0 });
+      appliedCoupon = null;
+      cart = [{ n: 'Sample', p: 50 }];
+      appliedGiftCard = { code: 'AECO25', balance: 25 };
+      renderCart();
+      results.push({ name: 'gift card reduces total correctly', pass: document.getElementById('total').textContent === '25.00' });
+      const journal = products.find((product) => product.name === 'Aecoray Journal');
+      results.push({ name: 'journal supports multiple images', pass: journal && Array.isArray(journal.images) && journal.images.length >= 2 });
+      results.push({ name: 'Aecoray listings available', pass: Array.isArray(aecorayListings) });
+      results.push({ name: 'categories exist for navigation', pass: Array.isArray(categoryDefinitions) && categoryDefinitions.length > 5 });
+      cart = [];
+      appliedGiftCard = null;
+      renderCart();
+      document.getElementById('testResults').textContent = results.map((result) => `${result.pass ? '✅' : '❌'} ${result.name}`).join('\n');
+    }
+
+    const aiButton = document.getElementById('aiButton');
+    const aiChat = document.getElementById('aiChat');
+    const aiMessages = document.getElementById('aiMessages');
+    const aiInput = document.getElementById('aiInput');
+
+    aiButton.addEventListener('click', () => {
+      aiChat.style.display = aiChat.style.display === 'block' ? 'none' : 'block';
+    });
+
+    aiInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || !aiInput.value.trim()) return;
+      const text = aiInput.value.trim();
+      aiMessages.innerHTML += `<div><strong>You:</strong> ${text}</div>`;
+      aiMessages.innerHTML += `<div><strong>Eljos:</strong> I can help you explore AECORAY, sustainability topics, products, services, events, sellers, and general platform questions. Please keep requests respectful and appropriate.</div>`;
+      aiInput.value = '';
+      aiMessages.scrollTop = aiMessages.scrollHeight;
+    });
+
+    renderCategoryGrid();
+    renderProducts();
+    loadPublicSellerProducts();
+    renderAecorayListings();
+    renderDynamicSections();
+    renderCategoryDetail();
+    renderCreatorGallery();
+    renderLegalPages();
+    renderCart();
+    autoAI();
+    toggleAdminMode(adminMode);
+    runTests();
+  </script>
+</body>
+</html>
