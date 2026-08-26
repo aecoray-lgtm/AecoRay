@@ -533,39 +533,6 @@ button{
 
       <div id="dynamicSections"></div>
 
-      <section id="creatorStudio" class="panel" style="margin-top:40px;">
-        <div class="section-heading">
-          <div>
-            <h2>Creator Studio</h2>
-            <p>Publish your own music, videos, pictures, and blog-style storytelling content.</p>
-          </div>
-        </div>
-        <div class="products" style="margin-top:20px; align-items:start;">
-          <div class="product">
-            <h3>Upload Content</h3>
-            <input id="creatorTitle" placeholder="Title" />
-            <select id="creatorType">
-              <option value="music">Music</option>
-              <option value="video">Video</option>
-              <option value="image">Picture</option>
-              <option value="blog">Blog</option>
-            </select>
-            <input id="creatorUrl" placeholder="Media URL or image URL" />
-            <textarea id="creatorDescription" placeholder="Short description or blog text" style="min-height:120px;"></textarea>
-            <button onclick="addCreatorContent()">Publish to Website</button>
-          </div>
-          <div class="product">
-            <h3>Featured Categories</h3>
-            <div class="discount-tag">Music</div>
-            <div class="discount-tag">Videos</div>
-            <div class="discount-tag">Pictures</div>
-            <div class="discount-tag">Blogs</div>
-            <p class="tiny-note">Your uploaded content appears below in a premium gallery layout.</p>
-          </div>
-        </div>
-        <div id="creatorGallery" class="products" style="margin-top:20px;"></div>
-        <div id="testResults" class="test-results"></div>
-      </section>
     </section>
 
     <section id="shopView" class="view">
@@ -1773,6 +1740,7 @@ window.forgotPassword = async function forgotPassword() {
       if (aecoraySelect) aecoraySelect.innerHTML = categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
       if (sellerRoot) {
         sellerRoot.innerHTML = '';
+      }
     }
 
     window.openCategory = function openCategory(categoryId) {
@@ -1802,8 +1770,7 @@ window.forgotPassword = async function forgotPassword() {
       }
       creatorContent.unshift({ title, type, url, description });
       save();
-      renderCreatorGallery();
-      document.getElementById('creatorTitle').value = '';
+        document.getElementById('creatorTitle').value = '';
       document.getElementById('creatorUrl').value = '';
       document.getElementById('creatorDescription').value = '';
       alert('Creator content published 🌱');
@@ -1888,7 +1855,6 @@ window.forgotPassword = async function forgotPassword() {
     renderCart();
     autoAI();
     toggleAdminMode(adminMode);
-    runTests();
   </script>
 </body>
 </html>
