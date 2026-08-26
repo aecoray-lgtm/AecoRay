@@ -1772,8 +1772,7 @@ window.forgotPassword = async function forgotPassword() {
       if (grid) grid.innerHTML = categoryDefinitions.map((category) => `<div class="category" onclick="openCategory('${category.id}')"><div><div class="icon">${category.icon}</div><h3>${category.name}</h3><p>${category.description}</p></div><div class="discount-tag">Open category</div></div>`).join('');
       if (aecoraySelect) aecoraySelect.innerHTML = categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
       if (sellerRoot) {
-        sellerRoot.innerHTML = `<div class="product"><h3>Seller Upload</h3><input id="sellerName" placeholder="Seller Name" /><input id="productNameUpload" placeholder="Product Name" /><input id="productPriceUpload" placeholder="Price" /><select id="sellerCategoryUpload">${categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('')}</select><input id="productImageUpload" placeholder="Image URL or multiple URLs separated by commas" /><input id="sellerCouponCode" placeholder="Seller coupon code (optional)" /><select id="sellerDiscountType"><option value="percent">Percent discount</option><option value="fixed">Fixed amount discount</option></select><input id="sellerDiscountValue" placeholder="Discount value" /><button onclick="addSellerProduct()">Add Product</button></div>`;
-      }
+        sellerRoot.innerHTML = '';
     }
 
     window.openCategory = function openCategory(categoryId) {
