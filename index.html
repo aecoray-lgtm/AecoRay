@@ -242,7 +242,8 @@
       position: fixed;
       right: -390px;
       top: 0;
-      width: 320px;
+      width: 370px;
+      max-width: 100%;
       height: 100%;
       background: rgba(7,17,26,0.96);
       padding: 24px;
@@ -252,6 +253,79 @@
       border-left: 1px solid var(--line);
     }
     #cart.open { right: 0; }
+    #cartItems {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+      display: grid;
+      gap: 12px;
+    }
+    .cart-item {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+    }
+    .cart-item-image {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+    }
+    .cart-item-name { font-weight: 800; margin-bottom: 4px; }
+    .cart-item-price { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+    .quantity-picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+    }
+    .quantity-picker button {
+      min-height: 36px;
+      width: 36px;
+      padding: 0;
+      border-radius: 10px;
+      font-size: 18px;
+    }
+    .quantity-picker input {
+      width: 52px;
+      margin: 0 !important;
+      padding: 8px !important;
+      text-align: center;
+      border: 0 !important;
+      background: transparent !important;
+      color: var(--text) !important;
+    }
+    .cart-remove {
+      min-height: 36px;
+      padding: 7px 10px;
+      margin-top: 6px;
+    }
+    #cartCount {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      color: #07111a;
+      font-size: 12px;
+      font-weight: 900;
+      border: 1px solid rgba(7,17,26,.18);
+    }
     #cartClose {
       position: absolute;
       top: 14px;
@@ -713,7 +787,7 @@ button{
     </section>
   </div>
 
-  <div id="cartToggle" onclick="toggleCart()">🛒</div>
+  <div id="cartToggle" onclick="toggleCart()">🛒<span id="cartCount">0</span></div>
   <div id="cart">
     <button id="cartClose" onclick="closeCart()">×</button>
     <h3>Cart</h3>
@@ -1486,13 +1560,53 @@ window.forgotPassword = async function forgotPassword() {
       renderCategoryDetail();
     };
 
-    window.addToCart = function addToCart(name, price, productId = '', sellerId = '') {
-      cart.push({
-        n: name,
-        p: Number(price),
-        productId: String(productId || ''),
-        sellerId: String(sellerId || '')
-      });
+    window.changeProductQuantity = function changeProductQuantity(inputId, delta, maxQty = 99) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const maximum = Math.max(1, Number(maxQty) || 99);
+      const current = Math.max(1, Number(input.value) || 1);
+      input.value = Math.min(maximum, Math.max(1, current + Number(delta || 0)));
+    };
+
+    window.addToCart = function addToCart(name, price, productId = '', sellerId = '', imageUrl = '', quantity = 1, maxQty = 99) {
+      const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+      const maximum = Math.max(1, Math.floor(Number(maxQty) || 99));
+      const safeQuantity = Math.min(requestedQuantity, maximum);
+      const normalizedProductId = String(productId || '');
+      const normalizedName = String(name || 'Item');
+      const existingIndex = cart.findIndex((item) =>
+        normalizedProductId
+          ? item.productId === normalizedProductId
+          : (!item.productId && item.n === normalizedName)
+      );
+
+      if (existingIndex >= 0) {
+        const existing = cart[existingIndex];
+        existing.quantity = Math.min(
+          Math.max(1, Number(existing.maxQty) || maximum),
+          Math.max(1, Number(existing.quantity) || 1) + safeQuantity
+        );
+        if (imageUrl && !existing.img) existing.img = String(imageUrl);
+      } else {
+        cart.push({
+          n: normalizedName,
+          p: Number(price),
+          productId: normalizedProductId,
+          sellerId: String(sellerId || ''),
+          img: String(imageUrl || ''),
+          quantity: safeQuantity,
+          maxQty: maximum
+        });
+      }
+      renderCart();
+    };
+
+    window.changeCartQuantity = function changeCartQuantity(index, delta) {
+      const item = cart[index];
+      if (!item) return;
+      const maximum = Math.max(1, Number(item.maxQty) || 99);
+      const current = Math.max(1, Number(item.quantity) || 1);
+      item.quantity = Math.min(maximum, Math.max(1, current + Number(delta || 0)));
       renderCart();
     };
 
@@ -1586,7 +1700,12 @@ window.forgotPassword = async function forgotPassword() {
             'Authorization': `Bearer ${idToken}`
           },
           body: JSON.stringify({
-            items: cart.map((item) => ({ productId: item.productId }))
+            items: cart.flatMap((item) =>
+              Array.from(
+                { length: Math.max(1, Math.floor(Number(item.quantity) || 1)) },
+                () => ({ productId: item.productId })
+              )
+            )
           })
         });
 
@@ -1688,12 +1807,23 @@ window.forgotPassword = async function forgotPassword() {
 
     function renderCart() {
       const cartItems = document.getElementById('cartItems');
-      cartItems.innerHTML = cart.map((item,index) => `<li>${item.n} — $${Number(item.p).toFixed(2)} <button onclick="removeFromCart(${index})" style="margin-left:8px;padding:4px 8px;">Remove</button></li>`).join('');
-      const subtotal = cart.reduce((sum, item) => sum + Number(item.p), 0);
-      const discountedSubtotal = cart.reduce((sum, item) => sum + getDiscountedPrice(item.p), 0);
+      cartItems.innerHTML = cart.length ? cart.map((item,index) => {
+        const quantity = Math.max(1, Number(item.quantity) || 1);
+        const lineTotal = Number(item.p) * quantity;
+        const imageHtml = item.img
+          ? `<img class="cart-item-image" src="${item.img}" alt="${item.n}" />`
+          : `<div class="cart-item-image" style="display:flex;align-items:center;justify-content:center;font-size:28px;">🌱</div>`;
+        return `<li class="cart-item">${imageHtml}<div><div class="cart-item-name">${item.n}</div><div class="cart-item-price">$${Number(item.p).toFixed(2)} each · $${lineTotal.toFixed(2)}</div><div class="quantity-picker"><button type="button" aria-label="Decrease quantity" onclick="changeCartQuantity(${index}, -1)">−</button><input value="${quantity}" aria-label="Quantity" readonly /><button type="button" aria-label="Increase quantity" onclick="changeCartQuantity(${index}, 1)">+</button></div><br><button class="button-secondary cart-remove" type="button" onclick="removeFromCart(${index})">Remove</button></div></li>`;
+      }).join('') : '<li class="tiny-note">Your cart is empty.</li>';
+
+      const subtotal = cart.reduce((sum, item) => sum + (Number(item.p) * Math.max(1, Number(item.quantity) || 1)), 0);
+      const discountedSubtotal = cart.reduce((sum, item) => sum + (getDiscountedPrice(item.p) * Math.max(1, Number(item.quantity) || 1)), 0);
       const discount = Number((subtotal - discountedSubtotal).toFixed(2));
       const giftCardAmount = appliedGiftCard ? Math.min(discountedSubtotal, Number(appliedGiftCard.balance)) : 0;
       const total = Math.max(0, Number((discountedSubtotal - giftCardAmount).toFixed(2)));
+      const itemCount = cart.reduce((sum, item) => sum + Math.max(1, Number(item.quantity) || 1), 0);
+      const cartCount = document.getElementById('cartCount');
+      if (cartCount) cartCount.textContent = String(itemCount);
       document.getElementById('subtotal').textContent = subtotal.toFixed(2);
       document.getElementById('discountAmount').textContent = discount.toFixed(2);
       document.getElementById('giftCardAmount').textContent = giftCardAmount.toFixed(2);
@@ -1738,7 +1868,11 @@ window.forgotPassword = async function forgotPassword() {
         const outOfStock = stockTracked && Number(product.inventory) <= 0;
         const stockText = stockTracked ? (outOfStock ? 'Out of stock' : `${Number(product.inventory)} available`) : 'Available';
         const fulfillmentText = product.fulfillment === 'pickup' ? 'Local pickup' : product.fulfillment === 'both' ? 'Shipping + pickup' : 'Shipping';
-        return `<div class="product">${image}<div class="discount-tag">Seller listing</div><p class="tiny-note"><strong>${sellerLabel}</strong></p><h3>${product.name || 'Seller product'}</h3><p>$${safePrice.toFixed(2)}</p><p>${product.description || ''}</p><p class="tiny-note">${categoryInfo ? `${categoryInfo.icon} ${categoryInfo.name} · ` : ''}${stockText} · ${fulfillmentText}</p><p class="tiny-note">📍 ${location || 'Location not set'}${distance}</p><button ${outOfStock ? 'disabled' : ''} onclick='addToCart(${safeName}, ${safePrice}, ${safeProductId}, ${safeSellerId})'>${outOfStock ? 'Out of Stock' : 'Add to Cart'}</button></div>`;
+        const quantityInputId = `qty-firestore-${String(id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+        const maxQty = stockTracked ? Math.max(1, Number(product.inventory) || 1) : 99;
+        const safeImageUrl = JSON.stringify(product.imageUrl || '');
+        const quantityControl = outOfStock ? '' : `<div class="quantity-picker"><button type="button" aria-label="Decrease quantity" onclick="changeProductQuantity('${quantityInputId}', -1, ${maxQty})">−</button><input id="${quantityInputId}" value="1" min="1" max="${maxQty}" aria-label="Quantity" readonly /><button type="button" aria-label="Increase quantity" onclick="changeProductQuantity('${quantityInputId}', 1, ${maxQty})">+</button></div>`;
+        return `<div class="product">${image}<div class="discount-tag">Seller listing</div><p class="tiny-note"><strong>${sellerLabel}</strong></p><h3>${product.name || 'Seller product'}</h3><p>$${safePrice.toFixed(2)}</p><p>${product.description || ''}</p><p class="tiny-note">${categoryInfo ? `${categoryInfo.icon} ${categoryInfo.name} · ` : ''}${stockText} · ${fulfillmentText}</p><p class="tiny-note">📍 ${location || 'Location not set'}${distance}</p>${quantityControl}<button ${outOfStock ? 'disabled' : ''} onclick='addToCart(${safeName}, ${safePrice}, ${safeProductId}, ${safeSellerId}, ${safeImageUrl}, document.getElementById(${JSON.stringify(quantityInputId)})?.value || 1, ${maxQty})'>${outOfStock ? 'Out of Stock' : 'Add to Cart'}</button></div>`;
       }).join('');
     }
 
@@ -1940,7 +2074,9 @@ window.forgotPassword = async function forgotPassword() {
         const itemLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
         const safeTitle = JSON.stringify(item.title);
         const safePrice = Number(item.price || 0);
-        return `<div class="product"><div class="product-gallery">${gallery}</div><div class="listing-meta"><div class="discount-tag">Aecoray ${itemLabel}</div><div class="seller-score">Seller: Aecoray</div></div><h3>${item.title}</h3><p>${item.description}</p><p>$${safePrice.toFixed(2)}</p><button onclick='addToCart(${safeTitle}, ${safePrice})'>${item.type === 'service' ? 'Hire Now' : 'Add to Cart'}</button></div>`;
+        const quantityInputId = `qty-aecoray-${String(item.id || item.title).replace(/[^a-zA-Z0-9_-]/g, '')}`;
+        const safeImageUrl = JSON.stringify((item.images && item.images[0]) || '');
+        return `<div class="product"><div class="product-gallery">${gallery}</div><div class="listing-meta"><div class="discount-tag">Aecoray ${itemLabel}</div><div class="seller-score">Seller: Aecoray</div></div><h3>${item.title}</h3><p>${item.description}</p><p>$${safePrice.toFixed(2)}</p><div class="quantity-picker"><button type="button" aria-label="Decrease quantity" onclick="changeProductQuantity('${quantityInputId}', -1, 99)">−</button><input id="${quantityInputId}" value="1" min="1" max="99" aria-label="Quantity" readonly /><button type="button" aria-label="Increase quantity" onclick="changeProductQuantity('${quantityInputId}', 1, 99)">+</button></div><button onclick='addToCart(${safeTitle}, ${safePrice}, "", "", ${safeImageUrl}, document.getElementById(${JSON.stringify(quantityInputId)})?.value || 1, 99)'>${item.type === 'service' ? 'Hire Now' : 'Add to Cart'}</button></div>`;
       }).join('');
     }
 
@@ -1950,7 +2086,9 @@ window.forgotPassword = async function forgotPassword() {
       list.innerHTML = products.map((product, index) => {
         const gallery = (product.images || [product.img]).map((image) => `<img src="${image}" alt="${product.name}" />`).join('');
         const reviewsHtml = (product.reviews || []).slice(-3).map((review) => `<div class="review">• ${review}</div>`).join('');
-        return `<div class="product"><div class="product-gallery">${gallery}</div><div class="discount-tag">${product.brand || 'Marketplace'} · ${(product.category || 'general').replace(/-/g, ' ')}</div><h3>${product.name}</h3><p>$${Number(product.price).toFixed(2)}</p><div class="stars">${renderStars(index, product.rating || 0)}</div><div class="seller-score">Seller score: ${product.seller || 0}/100</div><button onclick='addToCart(${JSON.stringify(product.name)}, ${Number(product.price)})'>Add to Cart</button><div class="review-box"><input id="review${index}" placeholder="Add written review" /><button onclick="addReview(${index})">Submit Review</button>${reviewsHtml}</div></div>`;
+        const quantityInputId = `qty-product-${index}`;
+        const safeImageUrl = JSON.stringify(product.img || ((product.images || [])[0]) || '');
+        return `<div class="product"><div class="product-gallery">${gallery}</div><div class="discount-tag">${product.brand || 'Marketplace'} · ${(product.category || 'general').replace(/-/g, ' ')}</div><h3>${product.name}</h3><p>$${Number(product.price).toFixed(2)}</p><div class="stars">${renderStars(index, product.rating || 0)}</div><div class="seller-score">Seller score: ${product.seller || 0}/100</div><div class="quantity-picker"><button type="button" aria-label="Decrease quantity" onclick="changeProductQuantity('${quantityInputId}', -1, 99)">−</button><input id="${quantityInputId}" value="1" min="1" max="99" aria-label="Quantity" readonly /><button type="button" aria-label="Increase quantity" onclick="changeProductQuantity('${quantityInputId}', 1, 99)">+</button></div><button onclick='addToCart(${JSON.stringify(product.name)}, ${Number(product.price)}, "", "", ${safeImageUrl}, document.getElementById(${JSON.stringify(quantityInputId)})?.value || 1, 99)'>Add to Cart</button><div class="review-box"><input id="review${index}" placeholder="Add written review" /><button onclick="addReview(${index})">Submit Review</button>${reviewsHtml}</div></div>`;
       }).join('');
     }
 
