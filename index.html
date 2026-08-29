@@ -623,51 +623,46 @@ button{
 
       <section class="panel" id="marketplaceSearchPanel" style="margin-bottom:24px;">
         <h3>Search the Marketplace</h3>
-        <p class="tiny-note">Search products, services, brands, sellers, descriptions, or categories.</p>
+        <p class="tiny-note">Find products, services, brands, sellers, or categories. Add location filters only when you need them.</p>
+
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center;">
-          <input id="marketplaceSearchInput" type="search" placeholder="Search products, services, brands, or categories..." style="flex:1; min-width:240px; margin:0;" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); searchMarketplace(); }" />
-          <button type="button" onclick="searchMarketplace()">Search</button>
+          <input id="marketplaceSearchInput" type="search" placeholder="What are you looking for?" style="flex:1; min-width:240px; margin:0;" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); searchMarketplace(); }" />
+        </div>
+
+        <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,.12);">
+          <p class="tiny-note" style="margin:0 0 10px;"><strong>Optional location filters</strong></p>
+          <div class="split-grid">
+            <div>
+              <input id="searchCountry" type="text" placeholder="Country" />
+              <input id="searchRegion" type="text" placeholder="State / Province / Region" />
+              <input id="searchCity" type="text" placeholder="City" />
+            </div>
+            <div>
+              <select id="searchRadiusKm">
+                <option value="">Any distance</option>
+                <option value="5">Within 5 km</option>
+                <option value="10">Within 10 km</option>
+                <option value="25">Within 25 km</option>
+                <option value="50">Within 50 km</option>
+                <option value="100">Within 100 km</option>
+                <option value="250">Within 250 km</option>
+              </select>
+              <button type="button" class="button-secondary" onclick="useCurrentSearchLocation()">Use My Current Location</button>
+              <p id="searchLocationStatus" class="tiny-note"></p>
+              <input id="searchLatitude" type="hidden" />
+              <input id="searchLongitude" type="hidden" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+          <button type="button" onclick="searchMarketplace()">Search Marketplace</button>
           <button type="button" class="button-secondary" onclick="clearMarketplaceSearch()">Clear</button>
         </div>
         <p id="marketplaceSearchStatus" class="tiny-note" style="margin-top:10px;"></p>
       </section>
 
       <div id="marketplaceSearchResults" style="display:none; margin-bottom:24px;"></div>
-
-      <section class="panel" id="locationSearchPanel" style="margin-bottom:24px;">
-        <h3>Search by Location</h3>
-        <p class="tiny-note">Search seller listings by country, region, city, or distance from your current location.</p>
-
-        <div class="split-grid" style="margin-top:14px;">
-          <div>
-            <input id="searchCountry" type="text" placeholder="Country" />
-            <input id="searchRegion" type="text" placeholder="State / Province / Region" />
-            <input id="searchCity" type="text" placeholder="City" />
-          </div>
-          <div>
-            <select id="searchRadiusKm">
-              <option value="">Any distance</option>
-              <option value="5">Within 5 km</option>
-              <option value="10">Within 10 km</option>
-              <option value="25">Within 25 km</option>
-              <option value="50">Within 50 km</option>
-              <option value="100">Within 100 km</option>
-              <option value="250">Within 250 km</option>
-            </select>
-            <button type="button" class="button-secondary" onclick="useCurrentSearchLocation()">Use My Current Location</button>
-            <p id="searchLocationStatus" class="tiny-note"></p>
-            <input id="searchLatitude" type="hidden" />
-            <input id="searchLongitude" type="hidden" />
-          </div>
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-          <button type="button" onclick="searchProductsByLocation()">Search This Area</button>
-          <button type="button" class="button-secondary" onclick="clearLocationSearch()">Clear Search</button>
-        </div>
-      </section>
-
-      <div id="locationSearchResults" class="products" style="display:none; margin-bottom:24px;"></div>
       <div id="firestoreProductList" class="products" style="margin-bottom:24px;"></div>
       <div class="products" id="productList"></div>
       <div id="categoryDetail" style="margin-top:24px;"></div>
@@ -1967,26 +1962,42 @@ window.forgotPassword = async function forgotPassword() {
       const localProductsTarget = document.getElementById('productList');
       const firestoreTarget = document.getElementById('firestoreProductList');
       const categoryTarget = document.getElementById('categoryDetail');
-      const locationResults = document.getElementById('locationSearchResults');
-      const term = normalizeMarketplaceSearchText(input?.value);
 
-      if (!term) {
-        if (status) status.textContent = 'Type something to search the marketplace.';
+      const rawTerm = input?.value?.trim() || '';
+      const term = normalizeMarketplaceSearchText(rawTerm);
+      const country = normalizeLocationText(document.getElementById('searchCountry')?.value);
+      const region = normalizeLocationText(document.getElementById('searchRegion')?.value);
+      const city = normalizeLocationText(document.getElementById('searchCity')?.value);
+      const radiusKm = Number(document.getElementById('searchRadiusKm')?.value || 0);
+      const latitudeField = document.getElementById('searchLatitude');
+      const longitudeField = document.getElementById('searchLongitude');
+      const searchLatitude = Number(latitudeField?.value);
+      const searchLongitude = Number(longitudeField?.value);
+      const hasSearchCoordinates = Number.isFinite(searchLatitude) && Number.isFinite(searchLongitude) &&
+        latitudeField?.value !== '' && longitudeField?.value !== '';
+      const hasLocationFilters = Boolean(country || region || city || radiusKm);
+
+      if (!term && !hasLocationFilters) {
+        if (status) status.textContent = 'Enter what you are looking for, choose a location filter, or both.';
         input?.focus();
         return;
       }
 
-      if (status) status.textContent = `Searching for “${input.value.trim()}”...`;
+      if (radiusKm && !hasSearchCoordinates) {
+        alert('To search by distance, first click Use My Current Location. You can still search by country, region, or city without a distance.');
+        return;
+      }
+
       if (resultsTarget) {
         resultsTarget.style.display = 'block';
-        resultsTarget.innerHTML = '<div class="product"><p>Searching marketplace listings...</p></div>';
+        resultsTarget.innerHTML = '<div class="product"><p>Searching the marketplace...</p></div>';
       }
       if (localProductsTarget) localProductsTarget.style.display = 'none';
       if (firestoreTarget) firestoreTarget.style.display = 'none';
       if (categoryTarget) categoryTarget.style.display = 'none';
-      if (locationResults) locationResults.style.display = 'none';
 
-      const localMatches = products.map((product, index) => ({ product, index })).filter(({ product }) => {
+      const localMatches = hasLocationFilters ? [] : products.map((product, index) => ({ product, index })).filter(({ product }) => {
+        if (!term) return true;
         const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
         return marketplaceItemMatches([
           product.name,
@@ -1997,7 +2008,8 @@ window.forgotPassword = async function forgotPassword() {
         ], term);
       });
 
-      const aecorayMatches = aecorayListings.filter((item) => {
+      const aecorayMatches = hasLocationFilters ? [] : aecorayListings.filter((item) => {
+        if (!term) return true;
         const categoryInfo = categoryDefinitions.find((category) => category.id === item.category);
         return marketplaceItemMatches([
           item.title,
@@ -2011,40 +2023,70 @@ window.forgotPassword = async function forgotPassword() {
 
       try {
         const firestoreItems = await getFirestoreSellerProducts();
-        const firestoreMatches = firestoreItems.filter(({ product }) => {
+        const firestoreMatches = firestoreItems.map((entry) => {
+          const product = entry.product;
+          const productLatitude = Number(product.latitude);
+          const productLongitude = Number(product.longitude);
+          const hasProductCoordinates = Number.isFinite(productLatitude) && Number.isFinite(productLongitude) &&
+            product.latitude !== null && product.latitude !== undefined && product.longitude !== null && product.longitude !== undefined;
+          const distanceKm = hasSearchCoordinates && hasProductCoordinates
+            ? distanceBetweenKm(searchLatitude, searchLongitude, productLatitude, productLongitude)
+            : null;
+          return { ...entry, distanceKm };
+        }).filter(({ product, distanceKm }) => {
           if (product.status === 'draft') return false;
-          const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
-          return marketplaceItemMatches([
-            product.name,
-            product.description,
-            product.businessName,
-            product.sellerName,
-            product.category,
-            categoryInfo?.name,
-            product.fulfillment,
-            product.city,
-            product.region,
-            product.country
-          ], term);
+
+          if (term) {
+            const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
+            const termMatches = marketplaceItemMatches([
+              product.name,
+              product.description,
+              product.businessName,
+              product.sellerName,
+              product.category,
+              categoryInfo?.name,
+              product.fulfillment,
+              product.city,
+              product.region,
+              product.country
+            ], term);
+            if (!termMatches) return false;
+          }
+
+          if (country && !normalizeLocationText(product.country).includes(country)) return false;
+          if (region && !normalizeLocationText(product.region).includes(region)) return false;
+          if (city && !normalizeLocationText(product.city).includes(city)) return false;
+          if (radiusKm && (!Number.isFinite(distanceKm) || distanceKm > radiusKm)) return false;
+          return true;
+        }).sort((a, b) => {
+          if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
+          return 0;
         });
 
         const totalMatches = firestoreMatches.length + localMatches.length + aecorayMatches.length;
         let html = '';
+
         if (firestoreMatches.length) {
           html += '<div class="section-heading"><div><h2>Seller Listings</h2><p>Matching published products from Aecoray marketplace sellers.</p></div></div><div id="marketplaceFirestoreSearchResults" class="products"></div>';
         }
         html += renderLocalMarketplaceSearchCards(localMatches, aecorayMatches);
 
         if (!totalMatches) {
-          html = `<div class="product"><h3>No matches found</h3><p>Try a broader product name, category, brand, or seller.</p></div>`;
+          html = '<div class="product"><h3>No matches found</h3><p>Try a broader keyword or remove one of the location filters.</p></div>';
         }
 
         resultsTarget.innerHTML = html;
         if (firestoreMatches.length) {
           const firestoreSearchTarget = document.getElementById('marketplaceFirestoreSearchResults');
-          renderFirestoreProductCards(firestoreMatches.map((entry) => ({ ...entry, distanceKm: null })), firestoreSearchTarget);
+          renderFirestoreProductCards(firestoreMatches, firestoreSearchTarget);
         }
-        if (status) status.textContent = `${totalMatches} result${totalMatches === 1 ? '' : 's'} found for “${input.value.trim()}”.`;
+
+        const searchDescription = [
+          rawTerm ? `“${rawTerm}”` : '',
+          city || region || country ? [city, region, country].filter(Boolean).join(', ') : '',
+          radiusKm ? `within ${radiusKm} km` : ''
+        ].filter(Boolean).join(' · ');
+        if (status) status.textContent = `${totalMatches} result${totalMatches === 1 ? '' : 's'} found${searchDescription ? ` for ${searchDescription}` : ''}.`;
       } catch (error) {
         console.error(error);
         const localHtml = renderLocalMarketplaceSearchCards(localMatches, aecorayMatches);
@@ -2055,9 +2097,17 @@ window.forgotPassword = async function forgotPassword() {
 
     window.clearMarketplaceSearch = function clearMarketplaceSearch() {
       const input = document.getElementById('marketplaceSearchInput');
-      const status = document.getElementById('marketplaceSearchStatus');
       if (input) input.value = '';
+      ['searchCountry', 'searchRegion', 'searchCity', 'searchLatitude', 'searchLongitude'].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+      });
+      const radius = document.getElementById('searchRadiusKm');
+      if (radius) radius.value = '';
+      const status = document.getElementById('marketplaceSearchStatus');
       if (status) status.textContent = '';
+      const locationStatus = document.getElementById('searchLocationStatus');
+      if (locationStatus) locationStatus.textContent = '';
       showDefaultMarketplaceLists();
     };
 
@@ -2099,81 +2149,11 @@ window.forgotPassword = async function forgotPassword() {
     };
 
     window.searchProductsByLocation = async function searchProductsByLocation() {
-      const country = normalizeLocationText(document.getElementById('searchCountry').value);
-      const region = normalizeLocationText(document.getElementById('searchRegion').value);
-      const city = normalizeLocationText(document.getElementById('searchCity').value);
-      const radiusKm = Number(document.getElementById('searchRadiusKm').value || 0);
-      const searchLatitude = Number(document.getElementById('searchLatitude').value);
-      const searchLongitude = Number(document.getElementById('searchLongitude').value);
-      const hasSearchCoordinates = Number.isFinite(searchLatitude) && Number.isFinite(searchLongitude) &&
-        document.getElementById('searchLatitude').value !== '' && document.getElementById('searchLongitude').value !== '';
-
-      if (radiusKm && !hasSearchCoordinates) {
-        alert('To search by radius, first click Use My Current Location. You can still search manually by country, region, or city without a radius.');
-        return;
-      }
-
-      const resultsTarget = document.getElementById('locationSearchResults');
-      const localProductsTarget = document.getElementById('productList');
-      const firestoreTarget = document.getElementById('firestoreProductList');
-      const categoryTarget = document.getElementById('categoryDetail');
-      resultsTarget.style.display = 'grid';
-      resultsTarget.innerHTML = '<div class="product"><p>Searching seller listings...</p></div>';
-      if (localProductsTarget) localProductsTarget.style.display = 'none';
-      if (firestoreTarget) firestoreTarget.style.display = 'none';
-      if (categoryTarget) categoryTarget.style.display = 'none';
-
-      try {
-        const items = await getFirestoreSellerProducts();
-        const filtered = items.map((entry) => {
-          const product = entry.product;
-          const productLatitude = Number(product.latitude);
-          const productLongitude = Number(product.longitude);
-          const hasProductCoordinates = Number.isFinite(productLatitude) && Number.isFinite(productLongitude) &&
-            product.latitude !== null && product.latitude !== undefined && product.longitude !== null && product.longitude !== undefined;
-          const distanceKm = hasSearchCoordinates && hasProductCoordinates
-            ? distanceBetweenKm(searchLatitude, searchLongitude, productLatitude, productLongitude)
-            : null;
-          return { ...entry, distanceKm };
-        }).filter(({ product, distanceKm }) => {
-          if (product.status === 'draft') return false;
-          if (country && !normalizeLocationText(product.country).includes(country)) return false;
-          if (region && !normalizeLocationText(product.region).includes(region)) return false;
-          if (city && !normalizeLocationText(product.city).includes(city)) return false;
-          if (radiusKm && (!Number.isFinite(distanceKm) || distanceKm > radiusKm)) return false;
-          return true;
-        }).sort((a, b) => {
-          if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
-          return 0;
-        });
-
-        renderFirestoreProductCards(filtered, resultsTarget);
-      } catch (error) {
-        console.error(error);
-        resultsTarget.innerHTML = '<div class="product"><p>Location search is temporarily unavailable. Please try again.</p></div>';
-      }
+      return window.searchMarketplace();
     };
 
     window.clearLocationSearch = function clearLocationSearch() {
-      ['searchCountry', 'searchRegion', 'searchCity', 'searchLatitude', 'searchLongitude'].forEach((id) => {
-        const element = document.getElementById(id);
-        if (element) element.value = '';
-      });
-      const radius = document.getElementById('searchRadiusKm');
-      if (radius) radius.value = '';
-      const status = document.getElementById('searchLocationStatus');
-      if (status) status.textContent = '';
-      const resultsTarget = document.getElementById('locationSearchResults');
-      if (resultsTarget) {
-        resultsTarget.innerHTML = '';
-        resultsTarget.style.display = 'none';
-      }
-      const localProductsTarget = document.getElementById('productList');
-      const firestoreTarget = document.getElementById('firestoreProductList');
-      const categoryTarget = document.getElementById('categoryDetail');
-      if (localProductsTarget) localProductsTarget.style.display = 'grid';
-      if (firestoreTarget) firestoreTarget.style.display = 'grid';
-      if (categoryTarget) categoryTarget.style.display = 'block';
+      return window.clearMarketplaceSearch();
     };
 
     window.recommendBest = function recommendBest() {
