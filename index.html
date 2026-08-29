@@ -438,7 +438,8 @@ button{
     <nav>
       <a href="#" class="active" onclick="switchView('home', this); return false;">Home</a>
       <a href="#" onclick="switchView('shop', this); return false;">Shop</a>
-      <a href="#" onclick="switchView('login', this); return false;">Login</a>
+      <a id="accountNavLink" href="#" onclick="switchView('login', this); return false;">Login</a>
+      <a id="logoutNavLink" href="#" onclick="logout(); return false;" style="display:none;">Logout</a>
     </nav>
   </header>
 
@@ -611,6 +612,23 @@ button{
 
   <textarea id="sellerProductDescription" placeholder="Product description"></textarea>
 
+  <select id="sellerProductCategory">
+    <option value="">Choose a category</option>
+  </select>
+
+  <input id="sellerProductInventory" type="number" min="0" step="1" placeholder="Stock quantity" />
+
+  <select id="sellerProductFulfillment">
+    <option value="shipping">Shipping</option>
+    <option value="pickup">Local pickup</option>
+    <option value="both">Shipping + local pickup</option>
+  </select>
+
+  <select id="sellerProductStatus">
+    <option value="active">Published — visible in Shop</option>
+    <option value="draft">Draft — seller only</option>
+  </select>
+
   <input id="sellerProductImage" type="text" placeholder="Image URL for now" />
 
       <div style="margin-top:12px;">
@@ -633,7 +651,11 @@ button{
   <input id="sellerProductLongitude" type="hidden" />
 </div>
 
-  <button onclick="saveSellerProduct()">Save Product</button>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+    <button id="sellerProductSaveButton" onclick="saveSellerProduct()">Save Product</button>
+    <button id="sellerProductCancelButton" class="button-secondary" onclick="cancelSellerProductEdit()" style="display:none;">Cancel Edit</button>
+  </div>
+  <p id="sellerProductFormStatus" class="tiny-note"></p>
 </div>
 
 <div id="sellerProductsList" style="margin-top:20px;"></div>
@@ -650,36 +672,35 @@ button{
           <h2>Account Access</h2>
           <p class="tiny-note">Sign in or create an account using Firebase Email and Password authentication.</p>
 
-          <select id="accountRole">
-  <option value="customer">Customer</option>
-  <option value="seller">Seller</option>
-</select>
+          <div id="loginForm" style="margin-top:12px;">
+            <input id="loginEmail" type="email" placeholder="Email address" autocomplete="email" />
+            <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" />
+            <button onclick="signIn()">Log In</button>
+            <button class="button-secondary" onclick="forgotPassword()" style="margin-top:10px;">Forgot Password?</button>
+            <p class="tiny-note" style="margin-top:14px;">New to Aecoray?</p>
+            <button class="button-secondary" onclick="showCreateAccount()">Create Account</button>
+          </div>
 
-          <div style="margin-top:12px;">
-  <input id="accountCountry" type="text" placeholder="Country" />
-  <input id="accountRegion" type="text" placeholder="State / Province / Region" />
-  <input id="accountCity" type="text" placeholder="City" />
-
-  <button
-    type="button"
-    class="button-secondary"
-    onclick="useCurrentAccountLocation()"
-    style="margin-top:10px;"
-  >
-    Use My Current Location
-  </button>
-
-  <p id="accountLocationStatus" class="tiny-note"></p>
-
-  <input id="accountLatitude" type="hidden" />
-  <input id="accountLongitude" type="hidden" />
-</div>
-
-          <button onclick="signIn()">Login or Create Account</button>
-     <button class="button-secondary" onclick="forgotPassword()" style="margin-top:10px;">Forgot Password?</button>
-       
+          <div id="createAccountForm" style="display:none;margin-top:12px;">
+            <select id="accountRole" onchange="updateAccountRoleFields()">
+              <option value="customer">Customer</option>
+              <option value="seller">Seller</option>
+            </select>
+            <input id="accountFullName" type="text" placeholder="Full name" autocomplete="name" />
+            <input id="accountBusinessName" type="text" placeholder="Business / Company name" style="display:none;" />
+            <input id="signupEmail" type="email" placeholder="Email address" autocomplete="email" />
+            <input id="signupPassword" type="password" placeholder="Create password" autocomplete="new-password" />
+            <input id="accountCountry" type="text" placeholder="Country" />
+            <input id="accountRegion" type="text" placeholder="State / Province / Region" />
+            <input id="accountCity" type="text" placeholder="City" />
+            <button type="button" class="button-secondary" onclick="useCurrentAccountLocation()" style="margin-top:10px;">Use My Current Location</button>
+            <p id="accountLocationStatus" class="tiny-note"></p>
+            <input id="accountLatitude" type="hidden" />
+            <input id="accountLongitude" type="hidden" />
+            <button onclick="createAccount()" style="margin-top:10px;">Create Account</button>
+            <button class="button-secondary" onclick="showLogin()" style="margin-top:10px;">Back to Log In</button>
+          </div>
         </div>
-        
       </div>
 
       <div class="section-heading" style="margin-top:28px;">
@@ -710,7 +731,8 @@ button{
     <p>Discount: -$<span id="discountAmount">0.00</span></p>
     <p>Gift Card: -$<span id="giftCardAmount">0.00</span></p>
     <p>Total: $<span id="total">0.00</span></p>
-    <a href="https://buy.stripe.com/4gMdR98MT5Fe2xY3Om63K00" target="_blank" rel="noopener noreferrer"><button>Checkout</button></a>
+    <button id="checkoutButton" onclick="startStripeCheckout()">Secure Checkout</button>
+    <p class="tiny-note" id="checkoutNote">Secure Stripe Checkout is being connected to verified marketplace orders.</p>
   </div>
 
   <div id="aiButton">🧠</div>
@@ -737,7 +759,7 @@ button{
   </footer>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDLlDWMtNLNuVXLlSNJDinFrnUMSzLpq7c",
@@ -894,17 +916,46 @@ import { getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, deleteD
       return stars;
     }
 
-window.saveSellerProduct = async function saveSellerProduct() {
+async function getCurrentUserProfile() {
   const user = auth.currentUser;
+  if (!user) return { user: null, profile: null };
+
+  const profileSnapshot = await getDoc(doc(db, 'USERS', user.uid));
+  return {
+    user,
+    profile: profileSnapshot.exists() ? profileSnapshot.data() : null
+  };
+}
+
+async function requireSellerAccount() {
+  const { user, profile } = await getCurrentUserProfile();
 
   if (!user) {
     alert('Please log in as a seller first.');
-    return;
+    return null;
   }
+
+  if (!profile || profile.role !== 'seller') {
+    alert('This feature is available to seller accounts only.');
+    return null;
+  }
+
+  return { user, profile };
+}
+
+window.saveSellerProduct = async function saveSellerProduct() {
+  const sellerAccount = await requireSellerAccount();
+  if (!sellerAccount) return;
+  const { user, profile } = sellerAccount;
 
   const name = document.getElementById('sellerProductName').value.trim();
   const price = Number(document.getElementById('sellerProductPrice').value);
   const description = document.getElementById('sellerProductDescription').value.trim();
+  const category = document.getElementById('sellerProductCategory').value;
+  const inventoryValue = document.getElementById('sellerProductInventory').value;
+  const inventory = inventoryValue === '' ? null : Number(inventoryValue);
+  const fulfillment = document.getElementById('sellerProductFulfillment').value || 'shipping';
+  const status = document.getElementById('sellerProductStatus').value || 'active';
   const imageUrl = document.getElementById('sellerProductImage').value.trim();
   const country = document.getElementById('sellerProductCountry').value.trim();
   const region = document.getElementById('sellerProductRegion').value.trim();
@@ -912,8 +963,18 @@ window.saveSellerProduct = async function saveSellerProduct() {
   const latitude = Number(document.getElementById('sellerProductLatitude').value) || null;
   const longitude = Number(document.getElementById('sellerProductLongitude').value) || null;
 
-  if (!name || !price) {
-    alert('Please enter a product name and price.');
+  if (!name || !Number.isFinite(price) || price <= 0) {
+    alert('Please enter a product name and a valid price greater than $0.');
+    return;
+  }
+
+  if (!category) {
+    alert('Please choose a product category.');
+    return;
+  }
+
+  if (inventory !== null && (!Number.isInteger(inventory) || inventory < 0)) {
+    alert('Stock quantity must be a whole number of 0 or more.');
     return;
   }
 
@@ -937,6 +998,10 @@ window.saveSellerProduct = async function saveSellerProduct() {
     name: name,
     price: price,
     description: description,
+    category: category,
+    inventory: inventory,
+    fulfillment: fulfillment,
+    status: status,
     imageUrl: imageUrl,
     country: country,
     region: region,
@@ -951,9 +1016,15 @@ window.saveSellerProduct = async function saveSellerProduct() {
 } else {
   await addDoc(collection(db, 'PRODUCTS'), {
     sellerId: user.uid,
+    sellerName: profile.fullName || '',
+    businessName: profile.businessName || '',
     name: name,
     price: price,
     description: description,
+    category: category,
+    inventory: inventory,
+    fulfillment: fulfillment,
+    status: status,
     imageUrl: imageUrl,
     country: country,
     region: region,
@@ -964,31 +1035,20 @@ window.saveSellerProduct = async function saveSellerProduct() {
   });
 }
 
-  alert('Product saved successfully.');
+  alert(status === 'draft' ? 'Draft saved successfully.' : 'Product published successfully.');
 
-  document.getElementById('sellerProductName').value = '';
-  document.getElementById('sellerProductPrice').value = '';
-  document.getElementById('sellerProductDescription').value = '';
-  document.getElementById('sellerProductImage').value = '';
-  document.getElementById('sellerProductCountry').value = '';
-  document.getElementById('sellerProductRegion').value = '';
-  document.getElementById('sellerProductCity').value = '';
-  document.getElementById('sellerProductLatitude').value = '';
-  document.getElementById('sellerProductLongitude').value = '';
-  document.getElementById('sellerProductLocationStatus').textContent = '';
+  resetSellerProductForm();
   document.getElementById('sellerProductForm').style.display = 'none';
 
   await loadSellerProducts();
+  await loadPublicSellerProducts();
 };
 
 window.loadSellerProducts = async function loadSellerProducts() {
-  const user = auth.currentUser;
   const list = document.getElementById('sellerProductsList');
-
-  if (!user) {
-    alert('Please log in as a seller first.');
-    return;
-  }
+  const sellerAccount = await requireSellerAccount();
+  if (!sellerAccount) return;
+  const { user } = sellerAccount;
 
   if (!list) return;
 
@@ -1011,32 +1071,39 @@ window.loadSellerProducts = async function loadSellerProducts() {
   snapshot.forEach((productDoc) => {
     const product = productDoc.data();
 
+   const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
+   const listingStatus = product.status === 'draft' ? 'Draft' : 'Published';
+   const stockLabel = product.inventory === null || product.inventory === undefined
+     ? 'Stock not tracked'
+     : `${product.inventory} in stock`;
+   const fulfillmentLabel = product.fulfillment === 'pickup'
+     ? 'Local pickup'
+     : product.fulfillment === 'both'
+       ? 'Shipping + local pickup'
+       : 'Shipping';
+
    list.innerHTML += `
   <div class="panel" style="margin-top:12px;">
+    ${product.imageUrl ? `<img src="${product.imageUrl}" alt="${product.name || 'Seller product'}" style="width:100%;max-width:220px;height:150px;object-fit:cover;border-radius:14px;margin-bottom:10px;" />` : ''}
+    <div class="discount-tag">${listingStatus}</div>
     <h3>${product.name}</h3>
     <p>$${Number(product.price).toFixed(2)}</p>
     <p>${product.description || ''}</p>
+    <p class="tiny-note">${categoryInfo ? `${categoryInfo.icon} ${categoryInfo.name}` : 'Category not set'} · ${stockLabel} · ${fulfillmentLabel}</p>
     <p class="tiny-note">📍 ${[product.city, product.region, product.country].filter(Boolean).join(', ') || 'Location not set'}</p>
 
-    <button onclick="editSellerProduct('${productDoc.id}')">
-      Edit
-    </button>
+    <button onclick="editSellerProduct('${productDoc.id}')">Edit</button>
 
-    <button class="button-secondary" onclick="deleteSellerProduct('${productDoc.id}')">
-      Delete
-    </button>
+    <button class="button-secondary" onclick="deleteSellerProduct('${productDoc.id}')">Delete</button>
   </div>
 `;
   });
 };
 
 window.deleteSellerProduct = async function deleteSellerProduct(productId) {
-  const user = auth.currentUser;
-
-  if (!user) {
-    alert('Please log in as a seller first.');
-    return;
-  }
+  const sellerAccount = await requireSellerAccount();
+  if (!sellerAccount) return;
+  const { user } = sellerAccount;
 
   const productRef = doc(db, 'PRODUCTS', productId);
   const productSnapshot = await getDoc(productRef);
@@ -1065,12 +1132,9 @@ window.deleteSellerProduct = async function deleteSellerProduct(productId) {
 };
 
 window.editSellerProduct = async function editSellerProduct(productId) {
-  const user = auth.currentUser;
-
-  if (!user) {
-    alert('Please log in as a seller first.');
-    return;
-  }
+  const sellerAccount = await requireSellerAccount();
+  if (!sellerAccount) return;
+  const { user } = sellerAccount;
 
   const productRef = doc(db, 'PRODUCTS', productId);
   const productSnapshot = await getDoc(productRef);
@@ -1092,6 +1156,10 @@ window.editSellerProduct = async function editSellerProduct(productId) {
   document.getElementById('sellerProductName').value = product.name || '';
   document.getElementById('sellerProductPrice').value = product.price || '';
   document.getElementById('sellerProductDescription').value = product.description || '';
+  document.getElementById('sellerProductCategory').value = product.category || '';
+  document.getElementById('sellerProductInventory').value = product.inventory ?? '';
+  document.getElementById('sellerProductFulfillment').value = product.fulfillment || 'shipping';
+  document.getElementById('sellerProductStatus').value = product.status || 'active';
   document.getElementById('sellerProductImage').value = product.imageUrl || '';
   document.getElementById('sellerProductCountry').value = product.country || '';
   document.getElementById('sellerProductRegion').value = product.region || '';
@@ -1102,6 +1170,43 @@ window.editSellerProduct = async function editSellerProduct(productId) {
     [product.city, product.region, product.country].filter(Boolean).join(', ');
 
   document.getElementById('sellerProductForm').style.display = 'block';
+  const saveButton = document.getElementById('sellerProductSaveButton');
+  const cancelButton = document.getElementById('sellerProductCancelButton');
+  const formStatus = document.getElementById('sellerProductFormStatus');
+  if (saveButton) saveButton.textContent = 'Update Product';
+  if (cancelButton) cancelButton.style.display = 'inline-block';
+  if (formStatus) formStatus.textContent = 'Editing an existing listing.';
+  document.getElementById('sellerProductForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+function resetSellerProductForm() {
+  editingProductId = null;
+  ['sellerProductName','sellerProductPrice','sellerProductDescription','sellerProductImage','sellerProductCountry','sellerProductRegion','sellerProductCity','sellerProductLatitude','sellerProductLongitude'].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.value = '';
+  });
+  const category = document.getElementById('sellerProductCategory');
+  const inventory = document.getElementById('sellerProductInventory');
+  const fulfillment = document.getElementById('sellerProductFulfillment');
+  const status = document.getElementById('sellerProductStatus');
+  const locationStatus = document.getElementById('sellerProductLocationStatus');
+  const formStatus = document.getElementById('sellerProductFormStatus');
+  const saveButton = document.getElementById('sellerProductSaveButton');
+  const cancelButton = document.getElementById('sellerProductCancelButton');
+  if (category) category.value = '';
+  if (inventory) inventory.value = '';
+  if (fulfillment) fulfillment.value = 'shipping';
+  if (status) status.value = 'active';
+  if (locationStatus) locationStatus.textContent = '';
+  if (formStatus) formStatus.textContent = '';
+  if (saveButton) saveButton.textContent = 'Save Product';
+  if (cancelButton) cancelButton.style.display = 'none';
+}
+
+window.cancelSellerProductEdit = function cancelSellerProductEdit() {
+  resetSellerProductForm();
+  const form = document.getElementById('sellerProductForm');
+  if (form) form.style.display = 'none';
 };
     
 window.showSellerProductForm = function showSellerProductForm() {
@@ -1110,6 +1215,7 @@ window.showSellerProductForm = function showSellerProductForm() {
   if (!form) return;
 
   if (form.style.display === 'none' || form.style.display === '') {
+    resetSellerProductForm();
     form.style.display = 'block';
   } else {
     form.style.display = 'none';
@@ -1235,65 +1341,129 @@ window.showSellerProductForm = function showSellerProductForm() {
       );
     };
 
-    window.signIn = async function signIn() {
-  const email = prompt('Enter email');
-  const password = prompt('Enter password');
+    function getProfileDisplayName(userData, email) {
+      const fullName = String(userData?.fullName || userData?.FULLNAME || userData?.fullname || '').trim();
+      const businessName = String(userData?.businessName || userData?.companyName || userData?.COMPANY || '').trim();
+      const role = userData?.role;
 
-  if (!email || !password) return;
+      if (role === 'seller') {
+        if (businessName && fullName) return `${businessName} — ${fullName}`;
+        return businessName || fullName || email;
+      }
 
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-
-    const userDoc = await getDoc(doc(db, 'USERS', userCredential.user.uid));
-const userData = userDoc.data();
-const userRole = userData?.role;
-
-    if (userRole === 'seller') {
- switchView('sellerDashboard');
-  document.getElementById('authStatus').textContent = `Seller logged in as ${email}`;
-} else {
-  switchView('home');
-  document.getElementById('authStatus').textContent = `Customer logged in as ${email}`;
-}
-
-  } catch (err) {
-    try {
-      const userCredential =
-        await createUserWithEmailAndPassword(auth, email, password);
-
-      await setDoc(
-        doc(db, 'USERS', userCredential.user.uid),
-        {
-          email: email,
-          role: document.getElementById('accountRole').value,
-          country: document.getElementById('accountCountry').value.trim(),
-region: document.getElementById('accountRegion').value.trim(),
-city: document.getElementById('accountCity').value.trim(),
-latitude: Number(document.getElementById('accountLatitude').value) || null,
-longitude: Number(document.getElementById('accountLongitude').value) || null,
-          createdAt: serverTimestamp()
-        }
-      );
-
- const newUserRole = document.getElementById('accountRole').value;
-
-if (newUserRole === 'seller') {
-  switchView('sellerDashboard');
-} else {
-  switchView('home');
-}
-      
-      document.getElementById('authStatus').textContent =
-        `Account created for ${email}`;
-
-      alert('Account created 🌱');
-
-    } catch (createErr) {
-      console.error(createErr);
-      alert('Login or account creation failed. Please check your email and password.');
+      return fullName || email;
     }
-  }
-};
+
+    function updateSignedInUI(user, userData = {}) {
+      const accountNavLink = document.getElementById('accountNavLink');
+      const logoutNavLink = document.getElementById('logoutNavLink');
+      const authStatus = document.getElementById('authStatus');
+      const role = userData?.role || 'customer';
+      const displayName = getProfileDisplayName(userData, user.email || '');
+
+      if (accountNavLink) accountNavLink.textContent = 'Account';
+      if (logoutNavLink) logoutNavLink.style.display = 'inline-block';
+      if (authStatus) {
+        authStatus.textContent = role === 'seller'
+          ? `Seller: ${displayName}`
+          : `Welcome, ${displayName}`;
+      }
+
+      const sellerWelcome = document.getElementById('sellerWelcome');
+      if (sellerWelcome && role === 'seller') {
+        sellerWelcome.textContent = `Welcome, ${displayName}. Manage your Aecoray store and products here.`;
+      }
+    }
+
+    function updateSignedOutUI() {
+      const accountNavLink = document.getElementById('accountNavLink');
+      const logoutNavLink = document.getElementById('logoutNavLink');
+      const authStatus = document.getElementById('authStatus');
+
+      if (accountNavLink) accountNavLink.textContent = 'Login';
+      if (logoutNavLink) logoutNavLink.style.display = 'none';
+      if (authStatus) authStatus.textContent = 'Not logged in';
+    }
+
+    window.updateAccountRoleFields = function updateAccountRoleFields() {
+      const role = document.getElementById('accountRole')?.value;
+      const businessField = document.getElementById('accountBusinessName');
+      if (businessField) businessField.style.display = role === 'seller' ? 'block' : 'none';
+    };
+
+    window.logout = async function logout() {
+      try {
+        await signOut(auth);
+        updateSignedOutUI();
+        switchView('home');
+      } catch (error) {
+        console.error(error);
+        alert('We could not log you out. Please try again.');
+      }
+    };
+
+    window.showCreateAccount = function showCreateAccount() {
+      const loginForm = document.getElementById('loginForm');
+      const createForm = document.getElementById('createAccountForm');
+      if (loginForm) loginForm.style.display = 'none';
+      if (createForm) createForm.style.display = 'block';
+      updateAccountRoleFields();
+    };
+
+    window.showLogin = function showLogin() {
+      const loginForm = document.getElementById('loginForm');
+      const createForm = document.getElementById('createAccountForm');
+      if (createForm) createForm.style.display = 'none';
+      if (loginForm) loginForm.style.display = 'block';
+    };
+
+    window.signIn = async function signIn() {
+      const email = document.getElementById('loginEmail')?.value.trim();
+      const password = document.getElementById('loginPassword')?.value || '';
+      if (!email || !password) { alert('Please enter your email and password.'); return; }
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userDoc = await getDoc(doc(db, 'USERS', userCredential.user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        const userRole = userData?.role || 'customer';
+        updateSignedInUI(userCredential.user, userData);
+        if (userRole === 'seller') switchView('sellerDashboard'); else switchView('home');
+      } catch (err) {
+        console.error(err);
+        alert('Login failed. Please check your email and password.');
+      }
+    };
+
+    window.createAccount = async function createAccount() {
+      const role = document.getElementById('accountRole')?.value || 'customer';
+      const fullName = document.getElementById('accountFullName')?.value.trim() || '';
+      const businessName = document.getElementById('accountBusinessName')?.value.trim() || '';
+      const email = document.getElementById('signupEmail')?.value.trim() || '';
+      const password = document.getElementById('signupPassword')?.value || '';
+      if (!fullName || !email || !password) { alert('Please enter your full name, email, and password.'); return; }
+      if (role === 'seller' && !businessName) { alert('Please enter your business or company name.'); return; }
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUserData = {
+          email, role, fullName,
+          businessName: role === 'seller' ? businessName : '',
+          country: document.getElementById('accountCountry')?.value.trim() || '',
+          region: document.getElementById('accountRegion')?.value.trim() || '',
+          city: document.getElementById('accountCity')?.value.trim() || '',
+          latitude: Number(document.getElementById('accountLatitude')?.value) || null,
+          longitude: Number(document.getElementById('accountLongitude')?.value) || null,
+          createdAt: serverTimestamp()
+        };
+        await setDoc(doc(db, 'USERS', userCredential.user.uid), newUserData);
+        updateSignedInUI(userCredential.user, newUserData);
+        if (role === 'seller') switchView('sellerDashboard'); else switchView('home');
+        alert('Account created 🌱');
+      } catch (err) {
+        console.error(err);
+        alert('Account creation failed. This email may already be registered, or the password may not meet the requirements.');
+      }
+    };
+
 window.forgotPassword = async function forgotPassword() {
   const email = prompt('Enter the email address for your AecoRay account');
 
@@ -1316,8 +1486,13 @@ window.forgotPassword = async function forgotPassword() {
       renderCategoryDetail();
     };
 
-    window.addToCart = function addToCart(name, price) {
-      cart.push({ n: name, p: Number(price) });
+    window.addToCart = function addToCart(name, price, productId = '', sellerId = '') {
+      cart.push({
+        n: name,
+        p: Number(price),
+        productId: String(productId || ''),
+        sellerId: String(sellerId || '')
+      });
       renderCart();
     };
 
@@ -1370,6 +1545,64 @@ window.forgotPassword = async function forgotPassword() {
 
     window.closeCart = function closeCart() {
       document.getElementById('cart').classList.remove('open');
+    };
+
+    window.startStripeCheckout = async function startStripeCheckout() {
+      const button = document.getElementById('checkoutButton');
+      const note = document.getElementById('checkoutNote');
+
+      if (!auth.currentUser) {
+        alert('Please log in or create an account before checking out.');
+        switchView('login');
+        return;
+      }
+
+      if (!cart.length) {
+        alert('Your cart is empty.');
+        return;
+      }
+
+      const unsupportedItems = cart.filter((item) => !item.productId);
+      if (unsupportedItems.length) {
+        alert('Secure checkout is currently enabled for published Firestore marketplace listings. Remove prototype/demo items from the cart and try again.');
+        return;
+      }
+
+      if (appliedCoupon || appliedGiftCard) {
+        alert('Coupons and gift cards are not yet connected to the secure server-side checkout. Please remove them before this test purchase.');
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = 'Opening secure checkout...';
+      note.textContent = 'Creating a verified Stripe Checkout session…';
+
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch('/.netlify/functions/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            items: cart.map((item) => ({ productId: item.productId }))
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.url) {
+          throw new Error(data.error || 'Secure checkout could not be started.');
+        }
+
+        window.location.assign(data.url);
+      } catch (error) {
+        console.error('Stripe checkout error:', error);
+        alert(error.message || 'Secure checkout could not be started. Please try again.');
+        note.textContent = 'Checkout could not be started. Please try again.';
+        button.disabled = false;
+        button.textContent = 'Secure Checkout';
+      }
     };
 
     window.addReview = async function addReview(index) {
@@ -1489,7 +1722,7 @@ window.forgotPassword = async function forgotPassword() {
         return;
       }
 
-      target.innerHTML = items.map(({ product, distanceKm }) => {
+      target.innerHTML = items.map(({ id, product, distanceKm }) => {
         const image = product.imageUrl
           ? `<img src="${product.imageUrl}" alt="${product.name || 'Seller product'}" />`
           : '';
@@ -1497,7 +1730,15 @@ window.forgotPassword = async function forgotPassword() {
         const distance = Number.isFinite(distanceKm) ? ` · ${distanceKm.toFixed(1)} km away` : '';
         const safeName = JSON.stringify(product.name || 'Seller product');
         const safePrice = Number(product.price || 0);
-        return `<div class="product">${image}<div class="discount-tag">Seller listing</div><h3>${product.name || 'Seller product'}</h3><p>$${safePrice.toFixed(2)}</p><p>${product.description || ''}</p><p class="tiny-note">📍 ${location || 'Location not set'}${distance}</p><button onclick='addToCart(${safeName}, ${safePrice})'>Add to Cart</button></div>`;
+        const safeProductId = JSON.stringify(id || '');
+        const safeSellerId = JSON.stringify(product.sellerId || '');
+        const sellerLabel = product.businessName || product.sellerName || 'Marketplace seller';
+        const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
+        const stockTracked = product.inventory !== null && product.inventory !== undefined;
+        const outOfStock = stockTracked && Number(product.inventory) <= 0;
+        const stockText = stockTracked ? (outOfStock ? 'Out of stock' : `${Number(product.inventory)} available`) : 'Available';
+        const fulfillmentText = product.fulfillment === 'pickup' ? 'Local pickup' : product.fulfillment === 'both' ? 'Shipping + pickup' : 'Shipping';
+        return `<div class="product">${image}<div class="discount-tag">Seller listing</div><p class="tiny-note"><strong>${sellerLabel}</strong></p><h3>${product.name || 'Seller product'}</h3><p>$${safePrice.toFixed(2)}</p><p>${product.description || ''}</p><p class="tiny-note">${categoryInfo ? `${categoryInfo.icon} ${categoryInfo.name} · ` : ''}${stockText} · ${fulfillmentText}</p><p class="tiny-note">📍 ${location || 'Location not set'}${distance}</p><button ${outOfStock ? 'disabled' : ''} onclick='addToCart(${safeName}, ${safePrice}, ${safeProductId}, ${safeSellerId})'>${outOfStock ? 'Out of Stock' : 'Add to Cart'}</button></div>`;
       }).join('');
     }
 
@@ -1514,7 +1755,8 @@ window.forgotPassword = async function forgotPassword() {
       if (!target) return;
       try {
         const items = await getFirestoreSellerProducts();
-        renderFirestoreProductCards(items.map((entry) => ({ ...entry, distanceKm: null })), target);
+        const publishedItems = items.filter(({ product }) => product.status !== 'draft');
+        renderFirestoreProductCards(publishedItems.map((entry) => ({ ...entry, distanceKm: null })), target);
       } catch (error) {
         console.error(error);
         target.innerHTML = '<div class="product"><p>Seller listings are temporarily unavailable.</p></div>';
@@ -1596,6 +1838,7 @@ window.forgotPassword = async function forgotPassword() {
             : null;
           return { ...entry, distanceKm };
         }).filter(({ product, distanceKm }) => {
+          if (product.status === 'draft') return false;
           if (country && !normalizeLocationText(product.country).includes(country)) return false;
           if (region && !normalizeLocationText(product.region).includes(region)) return false;
           if (city && !normalizeLocationText(product.city).includes(city)) return false;
@@ -1729,8 +1972,10 @@ window.forgotPassword = async function forgotPassword() {
       const grid = document.getElementById('categoryGrid');
       const aecoraySelect = document.getElementById('aecorayCategory');
       const sellerRoot = document.getElementById('sellerUploadRoot');
+      const sellerCategorySelect = document.getElementById('sellerProductCategory');
       if (grid) grid.innerHTML = categoryDefinitions.map((category) => `<div class="category" onclick="openCategory('${category.id}')"><div><div class="icon">${category.icon}</div><h3>${category.name}</h3><p>${category.description}</p></div><div class="discount-tag">Open category</div></div>`).join('');
       if (aecoraySelect) aecoraySelect.innerHTML = categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
+      if (sellerCategorySelect) sellerCategorySelect.innerHTML = `<option value="">Choose a category</option>` + categoryDefinitions.map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
       if (sellerRoot) {
         sellerRoot.innerHTML = '';
       }
@@ -1836,6 +2081,34 @@ window.forgotPassword = async function forgotPassword() {
       aiInput.value = '';
       aiMessages.scrollTop = aiMessages.scrollHeight;
     });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        updateSignedOutUI();
+        return;
+      }
+
+      try {
+        const profileSnapshot = await getDoc(doc(db, 'USERS', user.uid));
+        const profile = profileSnapshot.exists() ? profileSnapshot.data() : {};
+        updateSignedInUI(user, profile);
+      } catch (error) {
+        console.error('Could not restore account profile:', error);
+        updateSignedInUI(user, {});
+      }
+    });
+
+    const checkoutResult = new URLSearchParams(window.location.search).get('checkout');
+    if (checkoutResult === 'success') {
+      cart = [];
+      appliedCoupon = null;
+      appliedGiftCard = null;
+      setTimeout(() => alert('Payment received! Your Aecoray order is being confirmed. 🌱'), 150);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (checkoutResult === 'cancelled') {
+      setTimeout(() => alert('Checkout was cancelled. Your cart is still here.'), 150);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     renderCategoryGrid();
     renderProducts();
