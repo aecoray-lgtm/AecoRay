@@ -621,6 +621,19 @@ button{
         </div>
       </div>
 
+      <section class="panel" id="marketplaceSearchPanel" style="margin-bottom:24px;">
+        <h3>Search the Marketplace</h3>
+        <p class="tiny-note">Search products, services, brands, sellers, descriptions, or categories.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center;">
+          <input id="marketplaceSearchInput" type="search" placeholder="Search products, services, brands, or categories..." style="flex:1; min-width:240px; margin:0;" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); searchMarketplace(); }" />
+          <button type="button" onclick="searchMarketplace()">Search</button>
+          <button type="button" class="button-secondary" onclick="clearMarketplaceSearch()">Clear</button>
+        </div>
+        <p id="marketplaceSearchStatus" class="tiny-note" style="margin-top:10px;"></p>
+      </section>
+
+      <div id="marketplaceSearchResults" style="display:none; margin-bottom:24px;"></div>
+
       <section class="panel" id="locationSearchPanel" style="margin-bottom:24px;">
         <h3>Search by Location</h3>
         <p class="tiny-note">Search seller listings by country, region, city, or distance from your current location.</p>
@@ -1896,6 +1909,157 @@ window.forgotPassword = async function forgotPassword() {
         target.innerHTML = '<div class="product"><p>Seller listings are temporarily unavailable.</p></div>';
       }
     }
+
+    function normalizeMarketplaceSearchText(value) {
+      return String(value || '').toLowerCase().trim();
+    }
+
+    function marketplaceItemMatches(values, term) {
+      return values.some((value) => normalizeMarketplaceSearchText(value).includes(term));
+    }
+
+    function showDefaultMarketplaceLists() {
+      const searchResults = document.getElementById('marketplaceSearchResults');
+      const localProductsTarget = document.getElementById('productList');
+      const firestoreTarget = document.getElementById('firestoreProductList');
+      const categoryTarget = document.getElementById('categoryDetail');
+      const locationResults = document.getElementById('locationSearchResults');
+      if (searchResults) {
+        searchResults.style.display = 'none';
+        searchResults.innerHTML = '';
+      }
+      if (locationResults) locationResults.style.display = 'none';
+      if (localProductsTarget) localProductsTarget.style.display = 'grid';
+      if (firestoreTarget) firestoreTarget.style.display = 'grid';
+      if (categoryTarget) categoryTarget.style.display = '';
+    }
+
+    function renderLocalMarketplaceSearchCards(localMatches, aecorayMatches) {
+      const sections = [];
+
+      if (localMatches.length) {
+        const cards = localMatches.map(({ product, index }) => {
+          const gallery = (product.images || [product.img]).map((image) => `<img src="${image}" alt="${product.name}" />`).join('');
+          const quantityInputId = `qty-search-product-${index}`;
+          const safeImageUrl = JSON.stringify(product.img || ((product.images || [])[0]) || '');
+          return `<div class="product"><div class="product-gallery">${gallery}</div><div class="discount-tag">${product.brand || 'Marketplace'} · ${(product.category || 'general').replace(/-/g, ' ')}</div><h3>${product.name}</h3><p>$${Number(product.price || 0).toFixed(2)}</p><div class="quantity-picker"><button type="button" aria-label="Decrease quantity" onclick="changeProductQuantity('${quantityInputId}', -1, 99)">−</button><input id="${quantityInputId}" value="1" min="1" max="99" aria-label="Quantity" readonly /><button type="button" aria-label="Increase quantity" onclick="changeProductQuantity('${quantityInputId}', 1, 99)">+</button></div><button onclick='addToCart(${JSON.stringify(product.name)}, ${Number(product.price || 0)}, "", "", ${safeImageUrl}, document.getElementById(${JSON.stringify(quantityInputId)})?.value || 1, 99)'>Add to Cart</button></div>`;
+        }).join('');
+        sections.push(`<div class="section-heading"><div><h2>Aecoray & Marketplace Items</h2><p>Matching products already available in the marketplace.</p></div></div><div class="products">${cards}</div>`);
+      }
+
+      if (aecorayMatches.length) {
+        const cards = aecorayMatches.map((item) => {
+          const gallery = (item.images || []).map((image) => `<img src="${image}" alt="${item.title}" />`).join('');
+          const quantityInputId = `qty-search-aecoray-${String(item.id || item.title).replace(/[^a-zA-Z0-9_-]/g, '')}`;
+          const safeImageUrl = JSON.stringify((item.images && item.images[0]) || '');
+          return `<div class="product"><div class="product-gallery">${gallery}</div><div class="discount-tag">Aecoray ${item.type || 'listing'}</div><h3>${item.title}</h3><p>${item.description || ''}</p><p>$${Number(item.price || 0).toFixed(2)}</p><div class="quantity-picker"><button type="button" aria-label="Decrease quantity" onclick="changeProductQuantity('${quantityInputId}', -1, 99)">−</button><input id="${quantityInputId}" value="1" min="1" max="99" aria-label="Quantity" readonly /><button type="button" aria-label="Increase quantity" onclick="changeProductQuantity('${quantityInputId}', 1, 99)">+</button></div><button onclick='addToCart(${JSON.stringify(item.title)}, ${Number(item.price || 0)}, "", "", ${safeImageUrl}, document.getElementById(${JSON.stringify(quantityInputId)})?.value || 1, 99)'>${item.type === 'service' ? 'Hire Now' : 'Add to Cart'}</button></div>`;
+        }).join('');
+        sections.push(`<div class="section-heading"><div><h2>Aecoray Services & Experiences</h2><p>Matching official Aecoray listings.</p></div></div><div class="products">${cards}</div>`);
+      }
+
+      return sections.join('');
+    }
+
+    window.searchMarketplace = async function searchMarketplace() {
+      const input = document.getElementById('marketplaceSearchInput');
+      const status = document.getElementById('marketplaceSearchStatus');
+      const resultsTarget = document.getElementById('marketplaceSearchResults');
+      const localProductsTarget = document.getElementById('productList');
+      const firestoreTarget = document.getElementById('firestoreProductList');
+      const categoryTarget = document.getElementById('categoryDetail');
+      const locationResults = document.getElementById('locationSearchResults');
+      const term = normalizeMarketplaceSearchText(input?.value);
+
+      if (!term) {
+        if (status) status.textContent = 'Type something to search the marketplace.';
+        input?.focus();
+        return;
+      }
+
+      if (status) status.textContent = `Searching for “${input.value.trim()}”...`;
+      if (resultsTarget) {
+        resultsTarget.style.display = 'block';
+        resultsTarget.innerHTML = '<div class="product"><p>Searching marketplace listings...</p></div>';
+      }
+      if (localProductsTarget) localProductsTarget.style.display = 'none';
+      if (firestoreTarget) firestoreTarget.style.display = 'none';
+      if (categoryTarget) categoryTarget.style.display = 'none';
+      if (locationResults) locationResults.style.display = 'none';
+
+      const localMatches = products.map((product, index) => ({ product, index })).filter(({ product }) => {
+        const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
+        return marketplaceItemMatches([
+          product.name,
+          product.description,
+          product.brand,
+          product.category,
+          categoryInfo?.name
+        ], term);
+      });
+
+      const aecorayMatches = aecorayListings.filter((item) => {
+        const categoryInfo = categoryDefinitions.find((category) => category.id === item.category);
+        return marketplaceItemMatches([
+          item.title,
+          item.description,
+          item.type,
+          item.seller,
+          item.category,
+          categoryInfo?.name
+        ], term);
+      });
+
+      try {
+        const firestoreItems = await getFirestoreSellerProducts();
+        const firestoreMatches = firestoreItems.filter(({ product }) => {
+          if (product.status === 'draft') return false;
+          const categoryInfo = categoryDefinitions.find((item) => item.id === product.category);
+          return marketplaceItemMatches([
+            product.name,
+            product.description,
+            product.businessName,
+            product.sellerName,
+            product.category,
+            categoryInfo?.name,
+            product.fulfillment,
+            product.city,
+            product.region,
+            product.country
+          ], term);
+        });
+
+        const totalMatches = firestoreMatches.length + localMatches.length + aecorayMatches.length;
+        let html = '';
+        if (firestoreMatches.length) {
+          html += '<div class="section-heading"><div><h2>Seller Listings</h2><p>Matching published products from Aecoray marketplace sellers.</p></div></div><div id="marketplaceFirestoreSearchResults" class="products"></div>';
+        }
+        html += renderLocalMarketplaceSearchCards(localMatches, aecorayMatches);
+
+        if (!totalMatches) {
+          html = `<div class="product"><h3>No matches found</h3><p>Try a broader product name, category, brand, or seller.</p></div>`;
+        }
+
+        resultsTarget.innerHTML = html;
+        if (firestoreMatches.length) {
+          const firestoreSearchTarget = document.getElementById('marketplaceFirestoreSearchResults');
+          renderFirestoreProductCards(firestoreMatches.map((entry) => ({ ...entry, distanceKm: null })), firestoreSearchTarget);
+        }
+        if (status) status.textContent = `${totalMatches} result${totalMatches === 1 ? '' : 's'} found for “${input.value.trim()}”.`;
+      } catch (error) {
+        console.error(error);
+        const localHtml = renderLocalMarketplaceSearchCards(localMatches, aecorayMatches);
+        resultsTarget.innerHTML = localHtml || '<div class="product"><p>Search is temporarily unavailable. Please try again.</p></div>';
+        if (status) status.textContent = 'Seller search is temporarily unavailable. Showing any matching Aecoray items.';
+      }
+    };
+
+    window.clearMarketplaceSearch = function clearMarketplaceSearch() {
+      const input = document.getElementById('marketplaceSearchInput');
+      const status = document.getElementById('marketplaceSearchStatus');
+      if (input) input.value = '';
+      if (status) status.textContent = '';
+      showDefaultMarketplaceLists();
+    };
 
     window.useCurrentSearchLocation = function useCurrentSearchLocation() {
       const status = document.getElementById('searchLocationStatus');
