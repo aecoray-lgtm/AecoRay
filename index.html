@@ -680,9 +680,10 @@ button{
     <h3>My Store</h3>
     <p id="sellerWelcome">Welcome to your seller dashboard.</p>
 
-<div style="margin-top:18px;">
+<div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
   <button onclick="showSellerProductForm()">Add Product</button>
   <button class="button-secondary" onclick="loadSellerProducts()">My Products</button>
+  <button class="button-secondary" onclick="loadSellerOrders()">Incoming Orders</button>
 </div>
 
     <div id="sellerProductForm" style="display:none; margin-top:20px;">
@@ -741,6 +742,16 @@ button{
 </div>
 
 <div id="sellerProductsList" style="margin-top:20px;"></div>
+
+<div id="sellerOrdersSection" style="margin-top:24px;">
+  <div class="section-heading" style="margin-bottom:12px;">
+    <div>
+      <h3 style="margin:0;">Incoming Orders</h3>
+      <p class="tiny-note">Paid marketplace orders containing products from your store.</p>
+    </div>
+  </div>
+  <div id="sellerOrdersList"><p class="tiny-note">Open Incoming Orders to load your orders.</p></div>
+</div>
     
     <div style="margin-top:18px;">
       <button onclick="switchView('login')">Account & Settings</button>
@@ -751,8 +762,21 @@ button{
     <section id="loginView" class="view">
       <div class="split-grid">
         <div class="panel">
-          <h2>Account Access</h2>
-          <p class="tiny-note">Sign in or create an account using Firebase Email and Password authentication.</p>
+          <h2 id="accountAccessHeading">Account Access</h2>
+          <p id="accountAccessNote" class="tiny-note">Sign in or create an account using Firebase Email and Password authentication.</p>
+
+          <div id="accountDashboard" style="display:none; margin-top:12px;">
+            <p id="accountWelcome" style="margin-top:0;"></p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 18px;">
+              <button type="button" onclick="loadCustomerOrders()">My Orders</button>
+              <button id="accountSellerDashboardButton" type="button" class="button-secondary" onclick="switchView('sellerDashboard')" style="display:none;">Seller Dashboard</button>
+            </div>
+            <div>
+              <h3>My Orders</h3>
+              <p class="tiny-note">Your successful marketplace purchases will appear here.</p>
+              <div id="customerOrdersList"><p class="tiny-note">Loading your orders...</p></div>
+            </div>
+          </div>
 
           <div id="loginForm" style="margin-top:12px;">
             <input id="loginEmail" type="email" placeholder="Email address" autocomplete="email" />
@@ -1315,6 +1339,12 @@ window.showSellerProductForm = function showSellerProductForm() {
         const match = Array.from(document.querySelectorAll('nav a')).find((link) => link.textContent.trim().toLowerCase() === viewName);
         if (match) match.classList.add('active');
       }
+
+      if (viewName === 'login' && auth.currentUser) loadCustomerOrders();
+      if (viewName === 'sellerDashboard' && auth.currentUser) {
+        loadSellerProducts();
+        loadSellerOrders();
+      }
     };
 
     window.scrollToTop = function scrollToTop() {
@@ -1423,6 +1453,120 @@ window.showSellerProductForm = function showSellerProductForm() {
       );
     };
 
+    function escapeOrderText(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatOrderDate(value) {
+      try {
+        const date = value?.toDate ? value.toDate() : (value ? new Date(value) : null);
+        if (!date || Number.isNaN(date.getTime())) return 'Date unavailable';
+        return date.toLocaleString();
+      } catch (_) {
+        return 'Date unavailable';
+      }
+    }
+
+    function orderStatusLabel(order = {}) {
+      const raw = String(order.status || order.orderStatus || order.paymentStatus || 'paid').trim();
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'Paid';
+    }
+
+    function orderItemsArray(order = {}) {
+      return Array.isArray(order.items) ? order.items : [];
+    }
+
+    window.loadCustomerOrders = async function loadCustomerOrders() {
+      const list = document.getElementById('customerOrdersList');
+      const user = auth.currentUser;
+      if (!list) return;
+      if (!user) {
+        list.innerHTML = '<p class="tiny-note">Log in to view your orders.</p>';
+        return;
+      }
+
+      list.innerHTML = '<p class="tiny-note">Loading your orders...</p>';
+
+      try {
+        const ordersQuery = query(collection(db, 'ORDERS'), where('buyerId', '==', user.uid));
+        const snapshot = await getDocs(ordersQuery);
+        const orders = snapshot.docs.map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }));
+        orders.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+          const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          return bTime - aTime;
+        });
+
+        if (!orders.length) {
+          list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">You do not have any completed marketplace orders yet.</p></div>';
+          return;
+        }
+
+        list.innerHTML = orders.map((order) => {
+          const items = orderItemsArray(order);
+          const itemsHtml = items.length
+            ? items.map((item) => `<div style="padding:10px 0; border-top:1px solid var(--line);"><strong>${escapeOrderText(item.name || 'Marketplace item')}</strong><div class="tiny-note">Qty ${Number(item.quantity || 1)} · $${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} · ${escapeOrderText(item.businessName || item.sellerName || 'Marketplace seller')} · ${escapeOrderText(item.fulfillment || 'Fulfillment to be confirmed')}</div></div>`).join('')
+            : '<p class="tiny-note">Order item details unavailable.</p>';
+          return `<div class="panel" style="margin-top:12px;">
+            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
+            <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
+            ${itemsHtml}
+            <p style="margin-bottom:0;"><strong>Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+          </div>`;
+        }).join('');
+      } catch (error) {
+        console.error('Could not load customer orders:', error);
+        list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">We could not load your orders right now. Please try again.</p></div>';
+      }
+    };
+
+    window.loadSellerOrders = async function loadSellerOrders() {
+      const list = document.getElementById('sellerOrdersList');
+      if (!list) return;
+      const sellerAccount = await requireSellerAccount();
+      if (!sellerAccount) return;
+      const { user } = sellerAccount;
+
+      list.innerHTML = '<p class="tiny-note">Loading incoming orders...</p>';
+
+      try {
+        const ordersQuery = query(collection(db, 'ORDERS'), where('sellerIds', 'array-contains', user.uid));
+        const snapshot = await getDocs(ordersQuery);
+        const orders = snapshot.docs.map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }));
+        orders.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+          const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+          return bTime - aTime;
+        });
+
+        if (!orders.length) {
+          list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">No paid customer orders have reached your store yet.</p></div>';
+          return;
+        }
+
+        list.innerHTML = orders.map((order) => {
+          const sellerItems = orderItemsArray(order).filter((item) => item.sellerId === user.uid);
+          const sellerTotalCents = sellerItems.reduce((sum, item) => sum + (Number(item.unitAmountCents || 0) * Number(item.quantity || 1)), 0);
+          const itemsHtml = sellerItems.map((item) => `<div style="padding:10px 0; border-top:1px solid var(--line);"><strong>${escapeOrderText(item.name || 'Marketplace item')}</strong><div class="tiny-note">Qty ${Number(item.quantity || 1)} · $${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} · ${escapeOrderText(item.fulfillment || 'Fulfillment to be confirmed')}</div></div>`).join('');
+          return `<div class="panel" style="margin-top:12px;">
+            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
+            <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
+            <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || 'Buyer email unavailable')}</p>
+            ${itemsHtml || '<p class="tiny-note">No items from your store were found in this order.</p>'}
+            <p style="margin-bottom:0;"><strong>Your items total: $${(sellerTotalCents / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+          </div>`;
+        }).join('');
+      } catch (error) {
+        console.error('Could not load seller orders:', error);
+        list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">We could not load incoming orders right now. Please try again.</p></div>';
+      }
+    };
+
     function getProfileDisplayName(userData, email) {
       const fullName = String(userData?.fullName || userData?.FULLNAME || userData?.fullname || '').trim();
       const businessName = String(userData?.businessName || userData?.companyName || userData?.COMPANY || '').trim();
@@ -1451,9 +1595,24 @@ window.showSellerProductForm = function showSellerProductForm() {
           : `Welcome, ${displayName}`;
       }
 
+      const accountHeading = document.getElementById('accountAccessHeading');
+      const accountNote = document.getElementById('accountAccessNote');
+      const accountDashboard = document.getElementById('accountDashboard');
+      const accountWelcome = document.getElementById('accountWelcome');
+      const loginForm = document.getElementById('loginForm');
+      const createForm = document.getElementById('createAccountForm');
+      const sellerDashboardButton = document.getElementById('accountSellerDashboardButton');
+      if (accountHeading) accountHeading.textContent = 'My Account';
+      if (accountNote) accountNote.textContent = 'View your marketplace orders and account access.';
+      if (accountDashboard) accountDashboard.style.display = 'block';
+      if (accountWelcome) accountWelcome.textContent = `Signed in as ${displayName}.`;
+      if (loginForm) loginForm.style.display = 'none';
+      if (createForm) createForm.style.display = 'none';
+      if (sellerDashboardButton) sellerDashboardButton.style.display = role === 'seller' ? 'inline-flex' : 'none';
+
       const sellerWelcome = document.getElementById('sellerWelcome');
       if (sellerWelcome && role === 'seller') {
-        sellerWelcome.textContent = `Welcome, ${displayName}. Manage your Aecoray store and products here.`;
+        sellerWelcome.textContent = `Welcome, ${displayName}. Manage your Aecoray store, products, and incoming orders here.`;
       }
     }
 
@@ -1461,10 +1620,20 @@ window.showSellerProductForm = function showSellerProductForm() {
       const accountNavLink = document.getElementById('accountNavLink');
       const logoutNavLink = document.getElementById('logoutNavLink');
       const authStatus = document.getElementById('authStatus');
+      const accountHeading = document.getElementById('accountAccessHeading');
+      const accountNote = document.getElementById('accountAccessNote');
+      const accountDashboard = document.getElementById('accountDashboard');
+      const loginForm = document.getElementById('loginForm');
+      const createForm = document.getElementById('createAccountForm');
 
       if (accountNavLink) accountNavLink.textContent = 'Login';
       if (logoutNavLink) logoutNavLink.style.display = 'none';
       if (authStatus) authStatus.textContent = 'Not logged in';
+      if (accountHeading) accountHeading.textContent = 'Account Access';
+      if (accountNote) accountNote.textContent = 'Sign in or create an account using Firebase Email and Password authentication.';
+      if (accountDashboard) accountDashboard.style.display = 'none';
+      if (loginForm) loginForm.style.display = 'block';
+      if (createForm) createForm.style.display = 'none';
     }
 
     window.updateAccountRoleFields = function updateAccountRoleFields() {
@@ -2374,6 +2543,13 @@ window.forgotPassword = async function forgotPassword() {
         const profileSnapshot = await getDoc(doc(db, 'USERS', user.uid));
         const profile = profileSnapshot.exists() ? profileSnapshot.data() : {};
         updateSignedInUI(user, profile);
+        loadCustomerOrders();
+        if (profile?.role === 'seller') loadSellerOrders();
+        if (sessionStorage.getItem('aecorayOpenOrdersAfterCheckout') === '1') {
+          sessionStorage.removeItem('aecorayOpenOrdersAfterCheckout');
+          switchView('login');
+          scrollToTop();
+        }
       } catch (error) {
         console.error('Could not restore account profile:', error);
         updateSignedInUI(user, {});
@@ -2385,7 +2561,8 @@ window.forgotPassword = async function forgotPassword() {
       cart = [];
       appliedCoupon = null;
       appliedGiftCard = null;
-      setTimeout(() => alert('Payment received! Your Aecoray order is being confirmed. 🌱'), 150);
+      sessionStorage.setItem('aecorayOpenOrdersAfterCheckout', '1');
+      setTimeout(() => alert('Payment received! Your order will appear in Account → My Orders. 🌱'), 150);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (checkoutResult === 'cancelled') {
       setTimeout(() => alert('Checkout was cancelled. Your cart is still here.'), 150);
