@@ -1596,25 +1596,31 @@ window.showSellerProductForm = function showSellerProductForm() {
       let added = 0;
 
       for (const item of items) {
-        const productId = item.productId;
+        const productId = String(item.productId || '');
         if (!productId) continue;
+
         try {
           const productSnap = await getDoc(doc(db, 'PRODUCTS', productId));
           if (!productSnap.exists()) continue;
+
           const product = productSnap.data();
-          if (product.status === 'draft' || Number(product.inventory) === 0) continue;
-          const quantity = Math.max(1, Number(item.quantity || 1));
-          const existing = cart.find((cartItem) => cartItem.firestoreId === productId);
-          if (existing) existing.quantity = Number(existing.quantity || 1) + quantity;
-          else cart.push({
-            name: product.name || item.name || 'Marketplace item',
-            price: Number(product.price || 0),
-            img: product.imageUrl || '',
-            images: product.imageUrl ? [product.imageUrl] : [],
-            brand: product.businessName || product.sellerName || item.businessName || 'Marketplace Seller',
-            firestoreId: productId,
-            quantity
-          });
+          const inventory = Math.max(0, Math.floor(Number(product.inventory) || 0));
+          const price = Number(product.price);
+
+          if (product.status === 'draft' || inventory <= 0 || !Number.isFinite(price)) continue;
+
+          const requestedQuantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+          const quantity = Math.min(requestedQuantity, inventory);
+
+          addToCart(
+            product.name || item.name || 'Marketplace item',
+            price,
+            productId,
+            product.sellerId || item.sellerId || '',
+            product.imageUrl || item.imageUrl || '',
+            quantity,
+            inventory
+          );
           added += 1;
         } catch (error) {
           console.error('Could not add reordered product:', error);
@@ -1625,7 +1631,7 @@ window.showSellerProductForm = function showSellerProductForm() {
         alert('These items are not currently available to buy again.');
         return;
       }
-      renderCart();
+
       alert('Available items from this order were added to your cart.');
       if (typeof openCart === 'function') openCart();
       else {
