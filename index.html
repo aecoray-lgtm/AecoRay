@@ -848,6 +848,17 @@ button{
     <input id="aiInput" placeholder="Ask Eljos..." />
   </div>
 
+
+  <div id="orderDetailsModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this) closeOrderDetails();">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+        <h2 id="orderDetailsTitle" style="margin:0;">Order Details</h2>
+        <button type="button" class="button-secondary" onclick="closeOrderDetails()">Close</button>
+      </div>
+      <div id="orderDetailsBody" style="margin-top:18px;"></div>
+    </div>
+  </div>
+
   <footer>
     <p>Aecoray 🌱</p>
     <p style="font-size:12px;opacity:0.7;">© All Rights Reserved</p>
@@ -1481,6 +1492,161 @@ window.showSellerProductForm = function showSellerProductForm() {
       return Array.isArray(order.items) ? order.items : [];
     }
 
+    let customerOrdersCache = [];
+
+    function orderCurrency(order = {}) {
+      return String(order.currency || 'cad').toUpperCase();
+    }
+
+    function orderShortId(order = {}) {
+      return String(order.id || '').slice(0, 8).toUpperCase();
+    }
+
+    function fulfillmentLabel(value) {
+      if (value === 'pickup') return 'Local pickup';
+      if (value === 'both') return 'Shipping + local pickup';
+      if (value === 'shipping') return 'Shipping';
+      return value || 'Fulfillment to be confirmed';
+    }
+
+    function orderProgressHtml(order = {}) {
+      const raw = String(order.status || order.orderStatus || 'paid').toLowerCase();
+      const stages = ['Paid', 'Processing', 'Shipped', 'Delivered'];
+      let activeIndex = 0;
+      if (raw.includes('deliver')) activeIndex = 3;
+      else if (raw.includes('ship')) activeIndex = 2;
+      else if (raw.includes('process')) activeIndex = 1;
+      return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;">
+        ${stages.map((stage, index) => `<div style="padding:9px 6px;text-align:center;border-radius:12px;border:1px solid var(--line);background:${index <= activeIndex ? 'rgba(124,247,212,.13)' : 'rgba(255,255,255,.03)'};font-size:12px;font-weight:700;">${index <= activeIndex ? '✓ ' : ''}${stage}</div>`).join('')}
+      </div>`;
+    }
+
+    window.closeOrderDetails = function closeOrderDetails() {
+      const modal = document.getElementById('orderDetailsModal');
+      if (modal) modal.style.display = 'none';
+    };
+
+    window.viewOrderDetails = function viewOrderDetails(orderId) {
+      const order = customerOrdersCache.find((item) => item.id === orderId);
+      if (!order) return;
+      const items = orderItemsArray(order);
+      const body = document.getElementById('orderDetailsBody');
+      const title = document.getElementById('orderDetailsTitle');
+      const modal = document.getElementById('orderDetailsModal');
+      if (!body || !title || !modal) return;
+
+      title.textContent = `Order ${orderShortId(order)}`;
+      body.innerHTML = `
+        <div class="listing-meta"><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span><strong>${escapeOrderText(formatOrderDate(order.createdAt))}</strong></div>
+        ${orderProgressHtml(order)}
+        <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || auth.currentUser?.email || 'Unavailable')}</p>
+        <div style="margin-top:14px;">
+          ${items.map((item) => `<div style="padding:12px 0;border-top:1px solid var(--line);">
+            <strong>${escapeOrderText(item.name || 'Marketplace item')}</strong>
+            <div class="tiny-note">Quantity ${Number(item.quantity || 1)} · ${escapeOrderText(item.businessName || item.sellerName || 'Marketplace seller')} · ${escapeOrderText(fulfillmentLabel(item.fulfillment))}</div>
+            <div style="margin-top:4px;">$${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} ${escapeOrderText(orderCurrency(order))}</div>
+          </div>`).join('') || '<p>Item details unavailable.</p>'}
+        </div>
+        <p style="font-size:18px;"><strong>Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(orderCurrency(order))}</strong></p>
+        <p class="tiny-note">Aecoray order reference: ${escapeOrderText(order.id)}</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+          <button type="button" onclick="printOrderReceipt('${escapeOrderText(order.id)}')">Print / Save Receipt</button>
+          <button type="button" class="button-secondary" onclick="buyOrderAgain('${escapeOrderText(order.id)}')">Buy Again</button>
+        </div>`;
+      modal.style.display = 'flex';
+    };
+
+    window.printOrderReceipt = function printOrderReceipt(orderId) {
+      const order = customerOrdersCache.find((item) => item.id === orderId);
+      if (!order) return;
+      const items = orderItemsArray(order);
+      const receipt = window.open('', '_blank', 'width=760,height=800');
+      if (!receipt) {
+        alert('Please allow pop-ups to open the receipt.');
+        return;
+      }
+      const rows = items.map((item) => `<tr>
+        <td style="padding:8px;border-bottom:1px solid #ddd;">${escapeOrderText(item.name || 'Marketplace item')}</td>
+        <td style="padding:8px;border-bottom:1px solid #ddd;">${Number(item.quantity || 1)}</td>
+        <td style="padding:8px;border-bottom:1px solid #ddd;">${escapeOrderText(item.businessName || item.sellerName || 'Marketplace seller')}</td>
+        <td style="padding:8px;border-bottom:1px solid #ddd;text-align:right;">$${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)}</td>
+      </tr>`).join('');
+      receipt.document.write(`<!doctype html><html><head><title>Aecoray Receipt ${orderShortId(order)}</title></head>
+        <body style="font-family:Arial,sans-serif;padding:40px;color:#111;">
+          <h1>Aecoray</h1><h2>Order Receipt</h2>
+          <p><strong>Order:</strong> ${escapeOrderText(order.id)}</p>
+          <p><strong>Date:</strong> ${escapeOrderText(formatOrderDate(order.createdAt))}</p>
+          <p><strong>Status:</strong> ${escapeOrderText(orderStatusLabel(order))}</p>
+          <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || auth.currentUser?.email || '')}</p>
+          <table style="width:100%;border-collapse:collapse;margin-top:24px;">
+            <thead><tr><th style="text-align:left;padding:8px;">Item</th><th style="text-align:left;padding:8px;">Qty</th><th style="text-align:left;padding:8px;">Seller</th><th style="text-align:right;padding:8px;">Amount</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <h3 style="text-align:right;">Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(orderCurrency(order))}</h3>
+          <p style="margin-top:40px;font-size:12px;">This is an Aecoray marketplace order receipt.</p>
+          <script>window.onload=()=>window.print();<\/script>
+        </body></html>`);
+      receipt.document.close();
+    };
+
+    window.buyOrderAgain = async function buyOrderAgain(orderId) {
+      const order = customerOrdersCache.find((item) => item.id === orderId);
+      if (!order) return;
+      const items = orderItemsArray(order);
+      let added = 0;
+
+      for (const item of items) {
+        const productId = item.productId;
+        if (!productId) continue;
+        try {
+          const productSnap = await getDoc(doc(db, 'PRODUCTS', productId));
+          if (!productSnap.exists()) continue;
+          const product = productSnap.data();
+          if (product.status === 'draft' || Number(product.inventory) === 0) continue;
+          const quantity = Math.max(1, Number(item.quantity || 1));
+          const existing = cart.find((cartItem) => cartItem.firestoreId === productId);
+          if (existing) existing.quantity = Number(existing.quantity || 1) + quantity;
+          else cart.push({
+            name: product.name || item.name || 'Marketplace item',
+            price: Number(product.price || 0),
+            img: product.imageUrl || '',
+            images: product.imageUrl ? [product.imageUrl] : [],
+            brand: product.businessName || product.sellerName || item.businessName || 'Marketplace Seller',
+            firestoreId: productId,
+            quantity
+          });
+          added += 1;
+        } catch (error) {
+          console.error('Could not add reordered product:', error);
+        }
+      }
+
+      if (!added) {
+        alert('These items are not currently available to buy again.');
+        return;
+      }
+      renderCart();
+      alert('Available items from this order were added to your cart.');
+      if (typeof openCart === 'function') openCart();
+      else {
+        const cartPanel = document.getElementById('cart');
+        if (cartPanel) cartPanel.classList.add('open');
+      }
+    };
+
+    window.requestOrderReturn = function requestOrderReturn(orderId) {
+      const order = customerOrdersCache.find((item) => item.id === orderId);
+      if (!order) return;
+      alert(`Return / refund requests will be submitted through Aecoray once the secure returns backend is connected.\n\nOrder: ${orderShortId(order)}\n\nFor now, this button does not change or cancel your paid order.`);
+    };
+
+    window.contactOrderSeller = function contactOrderSeller(orderId) {
+      const order = customerOrdersCache.find((item) => item.id === orderId);
+      if (!order) return;
+      const sellerNames = [...new Set(orderItemsArray(order).map((item) => item.businessName || item.sellerName).filter(Boolean))];
+      alert(`Seller messaging is the next backend feature to connect.\n\nSeller: ${sellerNames.join(', ') || 'Marketplace seller'}\nOrder: ${orderShortId(order)}\n\nNo private seller email is exposed to the customer.`);
+    };
+
     window.loadCustomerOrders = async function loadCustomerOrders() {
       const list = document.getElementById('customerOrdersList');
       const user = auth.currentUser;
@@ -1501,6 +1667,7 @@ window.showSellerProductForm = function showSellerProductForm() {
           const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
           return bTime - aTime;
         });
+        customerOrdersCache = orders;
 
         if (!orders.length) {
           list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">You do not have any completed marketplace orders yet.</p></div>';
@@ -1510,13 +1677,20 @@ window.showSellerProductForm = function showSellerProductForm() {
         list.innerHTML = orders.map((order) => {
           const items = orderItemsArray(order);
           const itemsHtml = items.length
-            ? items.map((item) => `<div style="padding:10px 0; border-top:1px solid var(--line);"><strong>${escapeOrderText(item.name || 'Marketplace item')}</strong><div class="tiny-note">Qty ${Number(item.quantity || 1)} · $${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} · ${escapeOrderText(item.businessName || item.sellerName || 'Marketplace seller')} · ${escapeOrderText(item.fulfillment || 'Fulfillment to be confirmed')}</div></div>`).join('')
+            ? items.map((item) => `<div style="padding:10px 0; border-top:1px solid var(--line);"><strong>${escapeOrderText(item.name || 'Marketplace item')}</strong><div class="tiny-note">Qty ${Number(item.quantity || 1)} · $${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} · ${escapeOrderText(item.businessName || item.sellerName || 'Marketplace seller')} · ${escapeOrderText(fulfillmentLabel(item.fulfillment))}</div></div>`).join('')
             : '<p class="tiny-note">Order item details unavailable.</p>';
           return `<div class="panel" style="margin-top:12px;">
-            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
+            <div class="listing-meta"><strong>Order ${escapeOrderText(orderShortId(order))}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
             <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
+            ${orderProgressHtml(order)}
             ${itemsHtml}
-            <p style="margin-bottom:0;"><strong>Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+            <p><strong>Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(orderCurrency(order))}</strong></p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+              <button type="button" onclick="viewOrderDetails('${escapeOrderText(order.id)}')">View Details / Receipt</button>
+              <button type="button" class="button-secondary" onclick="buyOrderAgain('${escapeOrderText(order.id)}')">Buy Again</button>
+              <button type="button" class="button-secondary" onclick="requestOrderReturn('${escapeOrderText(order.id)}')">Return / Refund</button>
+              <button type="button" class="button-secondary" onclick="contactOrderSeller('${escapeOrderText(order.id)}')">Contact Seller</button>
+            </div>
           </div>`;
         }).join('');
       } catch (error) {
