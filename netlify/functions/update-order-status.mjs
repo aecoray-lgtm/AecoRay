@@ -12,13 +12,21 @@ const response = (statusCode, body) => ({
 
 const allowedStatuses = ['new', 'processing', 'shipped', 'delivered'];
 
+function cleanText(value, maxLength = 180) {
+  return String(value || '').trim().slice(0, maxLength);
+}
+
+function cleanDate(value) {
+  const raw = cleanText(value, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
+}
+
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return response(405, { error: 'Method not allowed.' });
   }
 
   try {
-    // 1. Verify the logged-in Firebase user.
     const authorization =
       event.headers?.authorization || event.headers?.Authorization;
 
@@ -30,10 +38,9 @@ export async function handler(event) {
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const sellerId = decodedToken.uid;
 
-    // 2. Read the order ID and requested status.
     const body = JSON.parse(event.body || '{}');
-    const orderId = String(body.orderId || '').trim();
-    const newStatus = String(body.status || '').trim().toLowerCase();
+    const orderId = cleanText(body.orderId, 160);
+    const newStatus = cleanText(body.status, 30).toLowerCase();
 
     if (!orderId) {
       return response(400, { error: 'Order ID is required.' });
@@ -43,7 +50,6 @@ export async function handler(event) {
       return response(400, { error: 'Invalid order status.' });
     }
 
-    // 3. Load the trusted order from Firestore.
     const orderRef = adminDb.collection('ORDERS').doc(orderId);
     const orderSnap = await orderRef.get();
 
@@ -52,21 +58,17 @@ export async function handler(event) {
     }
 
     const order = orderSnap.data();
-    const sellerIds = Array.isArray(order.sellerIds)
-      ? order.sellerIds
-      : [];
+    const sellerIds = Array.isArray(order.sellerIds) ? order.sellerIds : [];
 
-    // 4. Confirm this seller actually belongs to this order.
     if (!sellerIds.includes(sellerId)) {
       return response(403, {
         error: 'You are not authorized to update this order.'
       });
     }
 
-    // 5. Get THIS seller's current fulfillment status.
     const sellerStatuses = order.sellerStatuses || {};
-    const currentSellerStatus =
-      sellerStatuses?.[sellerId]?.status || 'new';
+    const currentSellerData = sellerStatuses?.[sellerId] || {};
+    const currentSellerStatus = currentSellerData.status || 'new';
 
     const statusOrder = {
       new: 0,
@@ -75,23 +77,65 @@ export async function handler(event) {
       delivered: 3
     };
 
-    // Prevent this seller from moving their fulfillment backwards.
-    if (
-      statusOrder[currentSellerStatus] !== undefined &&
-      statusOrder[newStatus] < statusOrder[currentSellerStatus]
-    ) {
+    const currentRank = statusOrder[currentSellerStatus] ?? 0;
+    const newRank = statusOrder[newStatus];
+
+    if (newRank < currentRank) {
       return response(400, {
         error: 'Order status cannot be moved backwards.'
       });
     }
 
-    // 6. Update ONLY this seller's fulfillment status.
-    await orderRef.update({
+    if (newRank > currentRank + 1) {
+      return response(400, {
+        error: 'Move the order through each fulfillment stage in sequence.'
+      });
+    }
+
+    const updates = {
       [`sellerStatuses.${sellerId}.status`]: newStatus,
-      [`sellerStatuses.${sellerId}.updatedAt`]:
-        FieldValue.serverTimestamp(),
+      [`sellerStatuses.${sellerId}.updatedAt`]: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
-    });
+    };
+
+    if (newStatus === 'processing' && !currentSellerData.processingAt) {
+      updates[`sellerStatuses.${sellerId}.processingAt`] =
+        FieldValue.serverTimestamp();
+
+      const estimatedShipDate = cleanDate(body.estimatedShipDate);
+      if (estimatedShipDate) {
+        updates[`sellerStatuses.${sellerId}.estimatedShipDate`] =
+          estimatedShipDate;
+      }
+    }
+
+    if (newStatus === 'shipped' && !currentSellerData.shippedAt) {
+      updates[`sellerStatuses.${sellerId}.shippedAt`] =
+        FieldValue.serverTimestamp();
+
+      const estimatedDeliveryDate = cleanDate(body.estimatedDeliveryDate);
+      const carrier = cleanText(body.carrier, 100);
+      const trackingNumber = cleanText(body.trackingNumber, 120);
+
+      if (estimatedDeliveryDate) {
+        updates[`sellerStatuses.${sellerId}.estimatedDeliveryDate`] =
+          estimatedDeliveryDate;
+      }
+      if (carrier) {
+        updates[`sellerStatuses.${sellerId}.carrier`] = carrier;
+      }
+      if (trackingNumber) {
+        updates[`sellerStatuses.${sellerId}.trackingNumber`] =
+          trackingNumber;
+      }
+    }
+
+    if (newStatus === 'delivered' && !currentSellerData.deliveredAt) {
+      updates[`sellerStatuses.${sellerId}.deliveredAt`] =
+        FieldValue.serverTimestamp();
+    }
+
+    await orderRef.update(updates);
 
     return response(200, {
       success: true,
