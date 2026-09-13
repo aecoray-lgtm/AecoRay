@@ -1483,9 +1483,37 @@ window.showSellerProductForm = function showSellerProductForm() {
       }
     }
 
+    function customerOrderStatus(order = {}) {
+      const statusRank = {
+        new: 0,
+        processing: 1,
+        shipped: 2,
+        delivered: 3
+      };
+
+      const sellerStatuses = order.sellerStatuses && typeof order.sellerStatuses === 'object'
+        ? Object.values(order.sellerStatuses)
+            .map((entry) => String(entry?.status || '').trim().toLowerCase())
+            .filter((status) => status in statusRank)
+        : [];
+
+      // For multi-seller orders, show the least-advanced seller status
+      // so the customer never sees the whole order as further along than it really is.
+      if (sellerStatuses.length) {
+        return sellerStatuses.reduce((leastAdvanced, status) =>
+          statusRank[status] < statusRank[leastAdvanced] ? status : leastAdvanced
+        );
+      }
+
+      const legacy = String(order.status || order.orderStatus || '').trim().toLowerCase();
+      if (legacy in statusRank) return legacy;
+
+      return 'new';
+    }
+
     function orderStatusLabel(order = {}) {
-      const raw = String(order.status || order.orderStatus || order.paymentStatus || 'paid').trim();
-      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'Paid';
+      const raw = customerOrderStatus(order);
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'New';
     }
 
     function orderItemsArray(order = {}) {
@@ -1509,15 +1537,130 @@ window.showSellerProductForm = function showSellerProductForm() {
       return value || 'Fulfillment to be confirmed';
     }
 
+    function firestoreDateToDate(value) {
+      if (!value) return null;
+      try {
+        if (value?.toDate) return value.toDate();
+        if (value?._seconds) return new Date(value._seconds * 1000);
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function compactDate(value) {
+      const date = firestoreDateToDate(value);
+      if (!date) return '';
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function plainDateLabel(value) {
+      if (!value) return '';
+      const date = new Date(`${value}T12:00:00`);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function orderSellerTimeline(order = {}) {
+      const sellers = order.sellerStatuses && typeof order.sellerStatuses === 'object'
+        ? Object.values(order.sellerStatuses)
+        : [];
+      if (!sellers.length) return {};
+
+      const statusRank = { new: 0, processing: 1, shipped: 2, delivered: 3 };
+      return sellers.reduce((leastAdvanced, entry) => {
+        if (!leastAdvanced) return entry || {};
+        const a = statusRank[String(leastAdvanced?.status || 'new').toLowerCase()] ?? 0;
+        const b = statusRank[String(entry?.status || 'new').toLowerCase()] ?? 0;
+        return b < a ? (entry || {}) : leastAdvanced;
+      }, null) || {};
+    }
+
     function orderProgressHtml(order = {}) {
-      const raw = String(order.status || order.orderStatus || 'paid').toLowerCase();
-      const stages = ['Paid', 'Processing', 'Shipped', 'Delivered'];
-      let activeIndex = 0;
-      if (raw.includes('deliver')) activeIndex = 3;
-      else if (raw.includes('ship')) activeIndex = 2;
-      else if (raw.includes('process')) activeIndex = 1;
+      const raw = customerOrderStatus(order);
+      const timeline = orderSellerTimeline(order);
+
+      const stages = [
+        { key: 'paid', label: 'Paid', date: compactDate(order.createdAt) },
+        { key: 'processing', label: 'Processing', date: compactDate(timeline.processingAt) },
+        { key: 'shipped', label: 'Shipped', date: compactDate(timeline.shippedAt) },
+        { key: 'delivered', label: 'Delivered', date: compactDate(timeline.deliveredAt) }
+      ];
+
+      const activeIndex =
+        raw === 'delivered' ? 3 :
+        raw === 'shipped' ? 2 :
+        raw === 'processing' ? 1 : 0;
+
       return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;">
-        ${stages.map((stage, index) => `<div style="padding:9px 6px;text-align:center;border-radius:12px;border:1px solid var(--line);background:${index <= activeIndex ? 'rgba(124,247,212,.13)' : 'rgba(255,255,255,.03)'};font-size:12px;font-weight:700;">${index <= activeIndex ? '✓ ' : ''}${stage}</div>`).join('')}
+        ${stages.map((stage, index) => {
+          const completed = index <= activeIndex;
+          const current = index === activeIndex;
+          const background = current
+            ? 'linear-gradient(90deg, rgba(124,247,212,.42), rgba(111,215,255,.34))'
+            : completed
+              ? 'rgba(124,247,212,.13)'
+              : 'rgba(255,255,255,.03)';
+          const border = current
+            ? '1px solid rgba(124,247,212,.8)'
+            : '1px solid var(--line)';
+          const shadow = current
+            ? '0 0 0 2px rgba(124,247,212,.12), 0 8px 22px rgba(0,0,0,.22)'
+            : 'none';
+
+          return `<div style="padding:10px 6px;text-align:center;border-radius:12px;border:${border};background:${background};box-shadow:${shadow};font-size:12px;font-weight:700;">
+            <div>${completed ? '✓ ' : ''}${stage.label}${current ? ' · Current' : ''}</div>
+            ${stage.date ? `<div style="font-size:10px;font-weight:500;margin-top:4px;opacity:.82;">${escapeOrderText(stage.date)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    function orderShippingDetailsHtml(order = {}) {
+      const timeline = orderSellerTimeline(order);
+      const status = customerOrderStatus(order);
+
+      const estimatedShipDate = plainDateLabel(timeline.estimatedShipDate);
+      const estimatedDeliveryDate = plainDateLabel(timeline.estimatedDeliveryDate);
+      const deliveredDate = compactDate(timeline.deliveredAt);
+      const carrier = String(timeline.carrier || '').trim();
+      const trackingNumber = String(timeline.trackingNumber || '').trim();
+
+      const details = [];
+
+      if (status === 'processing' && estimatedShipDate) {
+        details.push(`<strong>Estimated ship date:</strong> ${escapeOrderText(estimatedShipDate)}`);
+      }
+
+      if ((status === 'shipped' || status === 'delivered') && estimatedDeliveryDate && !deliveredDate) {
+        details.push(`<strong>Estimated delivery:</strong> ${escapeOrderText(estimatedDeliveryDate)}`);
+      }
+
+      if (deliveredDate) {
+        details.push(`<strong>Delivered:</strong> ${escapeOrderText(deliveredDate)}`);
+      }
+
+      if (carrier) {
+        details.push(`<strong>Carrier:</strong> ${escapeOrderText(carrier)}`);
+      }
+
+      if (trackingNumber) {
+        details.push(`<strong>Tracking:</strong> ${escapeOrderText(trackingNumber)}`);
+      }
+
+      if (!details.length) return '';
+
+      return `<div style="margin:10px 0 14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);">
+        <div class="tiny-note" style="display:grid;gap:5px;">${details.map((detail) => `<div>${detail}</div>`).join('')}</div>
       </div>`;
     }
 
@@ -1539,6 +1682,7 @@ window.showSellerProductForm = function showSellerProductForm() {
       body.innerHTML = `
         <div class="listing-meta"><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span><strong>${escapeOrderText(formatOrderDate(order.createdAt))}</strong></div>
         ${orderProgressHtml(order)}
+        ${orderShippingDetailsHtml(order)}
         <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || auth.currentUser?.email || 'Unavailable')}</p>
         <div style="margin-top:14px;">
           ${items.map((item) => `<div style="padding:12px 0;border-top:1px solid var(--line);">
@@ -1689,6 +1833,7 @@ window.showSellerProductForm = function showSellerProductForm() {
             <div class="listing-meta"><strong>Order ${escapeOrderText(orderShortId(order))}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
             <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
             ${orderProgressHtml(order)}
+            ${orderShippingDetailsHtml(order)}
             ${itemsHtml}
             <p><strong>Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(orderCurrency(order))}</strong></p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
@@ -1727,18 +1872,67 @@ window.showSellerProductForm = function showSellerProductForm() {
     window.updateSellerOrderStatus = async function updateSellerOrderStatus(orderId, status) {
       const sellerAccount = await requireSellerAccount();
       if (!sellerAccount) return;
+
       const { user } = sellerAccount;
-      if (!confirm(`Update this order to ${sellerOrderStatusLabel(status)}?`)) return;
+      const payload = { orderId, status };
+
+      if (status === 'processing') {
+        const estimatedShipDate = prompt(
+          'Optional: enter the estimated ship date as YYYY-MM-DD.\n\nLeave blank if you do not know it yet.',
+          ''
+        );
+        if (estimatedShipDate === null) return;
+        if (estimatedShipDate.trim()) payload.estimatedShipDate = estimatedShipDate.trim();
+      }
+
+      if (status === 'shipped') {
+        const estimatedDeliveryDate = prompt(
+          'Optional: enter the estimated delivery date as YYYY-MM-DD.\n\nLeave blank if unavailable.',
+          ''
+        );
+        if (estimatedDeliveryDate === null) return;
+
+        const carrier = prompt(
+          'Optional: enter the shipping carrier (for example Canada Post, UPS, FedEx).',
+          ''
+        );
+        if (carrier === null) return;
+
+        const trackingNumber = prompt(
+          'Optional: enter the tracking number.',
+          ''
+        );
+        if (trackingNumber === null) return;
+
+        if (estimatedDeliveryDate.trim()) payload.estimatedDeliveryDate = estimatedDeliveryDate.trim();
+        if (carrier.trim()) payload.carrier = carrier.trim();
+        if (trackingNumber.trim()) payload.trackingNumber = trackingNumber.trim();
+      }
+
+      const confirmed = confirm(`Update this order to ${sellerOrderStatusLabel(status)}?`);
+      if (!confirmed) return;
+
       try {
         const idToken = await user.getIdToken();
+
         const result = await fetch('/.netlify/functions/update-order-status', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-          body: JSON.stringify({ orderId, status })
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify(payload)
         });
+
         let data = {};
-        try { data = await result.json(); } catch (_) {}
-        if (!result.ok) throw new Error(data.error || 'Order status could not be updated.');
+        try {
+          data = await result.json();
+        } catch (_) {}
+
+        if (!result.ok) {
+          throw new Error(data.error || 'Order status could not be updated.');
+        }
+
         alert(`Order status updated to ${sellerOrderStatusLabel(data.status || status)}.`);
         await loadSellerOrders();
       } catch (error) {
