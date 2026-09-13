@@ -1537,16 +1537,130 @@ window.showSellerProductForm = function showSellerProductForm() {
       return value || 'Fulfillment to be confirmed';
     }
 
+    function firestoreDateToDate(value) {
+      if (!value) return null;
+      try {
+        if (value?.toDate) return value.toDate();
+        if (value?._seconds) return new Date(value._seconds * 1000);
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function compactDate(value) {
+      const date = firestoreDateToDate(value);
+      if (!date) return '';
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function plainDateLabel(value) {
+      if (!value) return '';
+      const date = new Date(`${value}T12:00:00`);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function orderSellerTimeline(order = {}) {
+      const sellers = order.sellerStatuses && typeof order.sellerStatuses === 'object'
+        ? Object.values(order.sellerStatuses)
+        : [];
+      if (!sellers.length) return {};
+
+      const statusRank = { new: 0, processing: 1, shipped: 2, delivered: 3 };
+      return sellers.reduce((leastAdvanced, entry) => {
+        if (!leastAdvanced) return entry || {};
+        const a = statusRank[String(leastAdvanced?.status || 'new').toLowerCase()] ?? 0;
+        const b = statusRank[String(entry?.status || 'new').toLowerCase()] ?? 0;
+        return b < a ? (entry || {}) : leastAdvanced;
+      }, null) || {};
+    }
+
     function orderProgressHtml(order = {}) {
       const raw = customerOrderStatus(order);
-      const stages = ['Paid', 'Processing', 'Shipped', 'Delivered'];
+      const timeline = orderSellerTimeline(order);
+
+      const stages = [
+        { key: 'paid', label: 'Paid', date: compactDate(order.createdAt) },
+        { key: 'processing', label: 'Processing', date: compactDate(timeline.processingAt) },
+        { key: 'shipped', label: 'Shipped', date: compactDate(timeline.shippedAt) },
+        { key: 'delivered', label: 'Delivered', date: compactDate(timeline.deliveredAt) }
+      ];
+
       const activeIndex =
         raw === 'delivered' ? 3 :
         raw === 'shipped' ? 2 :
         raw === 'processing' ? 1 : 0;
 
       return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;">
-        ${stages.map((stage, index) => `<div style="padding:9px 6px;text-align:center;border-radius:12px;border:1px solid var(--line);background:${index <= activeIndex ? 'rgba(124,247,212,.13)' : 'rgba(255,255,255,.03)'};font-size:12px;font-weight:700;">${index <= activeIndex ? '✓ ' : ''}${stage}</div>`).join('')}
+        ${stages.map((stage, index) => {
+          const completed = index <= activeIndex;
+          const current = index === activeIndex;
+          const background = current
+            ? 'linear-gradient(90deg, rgba(124,247,212,.42), rgba(111,215,255,.34))'
+            : completed
+              ? 'rgba(124,247,212,.13)'
+              : 'rgba(255,255,255,.03)';
+          const border = current
+            ? '1px solid rgba(124,247,212,.8)'
+            : '1px solid var(--line)';
+          const shadow = current
+            ? '0 0 0 2px rgba(124,247,212,.12), 0 8px 22px rgba(0,0,0,.22)'
+            : 'none';
+
+          return `<div style="padding:10px 6px;text-align:center;border-radius:12px;border:${border};background:${background};box-shadow:${shadow};font-size:12px;font-weight:700;">
+            <div>${completed ? '✓ ' : ''}${stage.label}${current ? ' · Current' : ''}</div>
+            ${stage.date ? `<div style="font-size:10px;font-weight:500;margin-top:4px;opacity:.82;">${escapeOrderText(stage.date)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    function orderShippingDetailsHtml(order = {}) {
+      const timeline = orderSellerTimeline(order);
+      const status = customerOrderStatus(order);
+
+      const estimatedShipDate = plainDateLabel(timeline.estimatedShipDate);
+      const estimatedDeliveryDate = plainDateLabel(timeline.estimatedDeliveryDate);
+      const deliveredDate = compactDate(timeline.deliveredAt);
+      const carrier = String(timeline.carrier || '').trim();
+      const trackingNumber = String(timeline.trackingNumber || '').trim();
+
+      const details = [];
+
+      if (status === 'processing' && estimatedShipDate) {
+        details.push(`<strong>Estimated ship date:</strong> ${escapeOrderText(estimatedShipDate)}`);
+      }
+
+      if ((status === 'shipped' || status === 'delivered') && estimatedDeliveryDate && !deliveredDate) {
+        details.push(`<strong>Estimated delivery:</strong> ${escapeOrderText(estimatedDeliveryDate)}`);
+      }
+
+      if (deliveredDate) {
+        details.push(`<strong>Delivered:</strong> ${escapeOrderText(deliveredDate)}`);
+      }
+
+      if (carrier) {
+        details.push(`<strong>Carrier:</strong> ${escapeOrderText(carrier)}`);
+      }
+
+      if (trackingNumber) {
+        details.push(`<strong>Tracking:</strong> ${escapeOrderText(trackingNumber)}`);
+      }
+
+      if (!details.length) return '';
+
+      return `<div style="margin:10px 0 14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);">
+        <div class="tiny-note" style="display:grid;gap:5px;">${details.map((detail) => `<div>${detail}</div>`).join('')}</div>
       </div>`;
     }
 
@@ -1568,6 +1682,7 @@ window.showSellerProductForm = function showSellerProductForm() {
       body.innerHTML = `
         <div class="listing-meta"><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span><strong>${escapeOrderText(formatOrderDate(order.createdAt))}</strong></div>
         ${orderProgressHtml(order)}
+        ${orderShippingDetailsHtml(order)}
         <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || auth.currentUser?.email || 'Unavailable')}</p>
         <div style="margin-top:14px;">
           ${items.map((item) => `<div style="padding:12px 0;border-top:1px solid var(--line);">
@@ -1669,17 +1784,289 @@ window.showSellerProductForm = function showSellerProductForm() {
       }
     };
 
-    window.requestOrderReturn = function requestOrderReturn(orderId) {
+    function orderSellerOptions(order = {}) {
+      const byId = new Map();
+      orderItemsArray(order).forEach((item) => {
+        const sellerId = String(item.sellerId || '').trim();
+        if (!sellerId) return;
+        const name = String(item.businessName || item.sellerName || 'Marketplace seller').trim();
+        if (!byId.has(sellerId)) byId.set(sellerId, name);
+      });
+      return [...byId.entries()].map(([sellerId, name]) => ({ sellerId, name }));
+    }
+
+    function chooseOrderSeller(order = {}, actionLabel = 'continue') {
+      const sellers = orderSellerOptions(order);
+      if (!sellers.length) {
+        alert('Seller information is unavailable for this order.');
+        return null;
+      }
+      if (sellers.length === 1) return sellers[0];
+
+      const options = sellers
+        .map((seller, index) => `${index + 1}. ${seller.name}`)
+        .join('\n');
+
+      const answer = prompt(
+        `This order contains items from more than one seller.\n\nChoose the seller to ${actionLabel}:\n${options}\n\nEnter the number.`,
+        '1'
+      );
+      if (answer === null) return null;
+      const selected = sellers[Number(answer) - 1];
+      if (!selected) {
+        alert('Please choose a valid seller number.');
+        return null;
+      }
+      return selected;
+    }
+
+    function orderMessageDate(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleString();
+    }
+
+    function orderMessagesHtml(order = {}, sellerId = '') {
+      const messages = Array.isArray(order.orderMessages) ? order.orderMessages : [];
+      const visible = sellerId
+        ? messages.filter((message) => String(message.sellerId || '') === String(sellerId))
+        : messages;
+
+      if (!visible.length) return '';
+
+      const sorted = [...visible].sort((a, b) =>
+        String(a.createdAt || '').localeCompare(String(b.createdAt || ''))
+      );
+
+      return `<div style="margin:12px 0;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);">
+        <strong>Order messages</strong>
+        <div style="display:grid;gap:8px;margin-top:9px;">
+          ${sorted.map((message) => {
+            const role = message.senderRole === 'seller' ? 'Seller' : 'Customer';
+            return `<div style="padding:9px 10px;border-radius:10px;background:rgba(255,255,255,.035);">
+              <div style="font-size:12px;font-weight:800;">${escapeOrderText(role)}</div>
+              <div style="margin-top:3px;">${escapeOrderText(message.text || '')}</div>
+              ${message.createdAt ? `<div class="tiny-note" style="margin-top:4px;">${escapeOrderText(orderMessageDate(message.createdAt))}</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }
+
+    function returnRequestForSeller(order = {}, sellerId = '') {
+      return order.returnRequests?.[sellerId] || null;
+    }
+
+    function returnRequestStatusLabel(status = '') {
+      const labels = {
+        requested: 'Requested',
+        approved: 'Approved',
+        declined: 'Declined',
+        needs_info: 'More information needed'
+      };
+      return labels[String(status || '').toLowerCase()] || 'Requested';
+    }
+
+    function customerReturnRequestsHtml(order = {}) {
+      const sellers = orderSellerOptions(order);
+      const blocks = sellers.map((seller) => {
+        const request = returnRequestForSeller(order, seller.sellerId);
+        if (!request) return '';
+        return `<div style="margin:10px 0;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);">
+          <div class="listing-meta">
+            <strong>Return / refund · ${escapeOrderText(seller.name)}</strong>
+            <span class="discount-tag">${escapeOrderText(returnRequestStatusLabel(request.status))}</span>
+          </div>
+          ${request.reason ? `<div class="tiny-note" style="margin-top:6px;"><strong>Reason:</strong> ${escapeOrderText(request.reason)}</div>` : ''}
+          ${request.details ? `<div class="tiny-note" style="margin-top:4px;">${escapeOrderText(request.details)}</div>` : ''}
+          ${request.sellerResponse ? `<div class="tiny-note" style="margin-top:7px;"><strong>Seller response:</strong> ${escapeOrderText(request.sellerResponse)}</div>` : ''}
+        </div>`;
+      }).filter(Boolean).join('');
+      return blocks;
+    }
+
+    window.contactOrderSeller = async function contactOrderSeller(orderId) {
       const order = customerOrdersCache.find((item) => item.id === orderId);
-      if (!order) return;
-      alert(`Return / refund requests will be submitted through Aecoray once the secure returns backend is connected.\n\nOrder: ${orderShortId(order)}\n\nFor now, this button does not change or cancel your paid order.`);
+      const user = auth.currentUser;
+      if (!order || !user) return;
+
+      const seller = chooseOrderSeller(order, 'message');
+      if (!seller) return;
+
+      const message = prompt(
+        `Message ${seller.name} about order ${orderShortId(order)}:`,
+        ''
+      );
+      if (message === null) return;
+      if (!message.trim()) {
+        alert('Please enter a message.');
+        return;
+      }
+
+      try {
+        const idToken = await user.getIdToken();
+        const result = await fetch('/.netlify/functions/send-order-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            orderId,
+            sellerId: seller.sellerId,
+            message: message.trim()
+          })
+        });
+
+        const data = await result.json().catch(() => ({}));
+        if (!result.ok) throw new Error(data.error || 'Message could not be sent.');
+
+        alert('Your message was sent to the seller.');
+        await loadCustomerOrders();
+      } catch (error) {
+        console.error('Could not send order message:', error);
+        alert(error.message || 'Message could not be sent.');
+      }
     };
 
-    window.contactOrderSeller = function contactOrderSeller(orderId) {
+    window.sellerReplyToOrder = async function sellerReplyToOrder(orderId) {
+      const sellerAccount = await requireSellerAccount();
+      if (!sellerAccount) return;
+      const { user } = sellerAccount;
+
+      const message = prompt('Reply to the customer about this order:', '');
+      if (message === null) return;
+      if (!message.trim()) {
+        alert('Please enter a message.');
+        return;
+      }
+
+      try {
+        const idToken = await user.getIdToken();
+        const result = await fetch('/.netlify/functions/send-order-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ orderId, message: message.trim() })
+        });
+
+        const data = await result.json().catch(() => ({}));
+        if (!result.ok) throw new Error(data.error || 'Reply could not be sent.');
+
+        alert('Reply sent to the customer.');
+        await loadSellerOrders();
+      } catch (error) {
+        console.error('Could not send seller reply:', error);
+        alert(error.message || 'Reply could not be sent.');
+      }
+    };
+
+    window.requestOrderReturn = async function requestOrderReturn(orderId) {
       const order = customerOrdersCache.find((item) => item.id === orderId);
-      if (!order) return;
-      const sellerNames = [...new Set(orderItemsArray(order).map((item) => item.businessName || item.sellerName).filter(Boolean))];
-      alert(`Seller messaging is the next backend feature to connect.\n\nSeller: ${sellerNames.join(', ') || 'Marketplace seller'}\nOrder: ${orderShortId(order)}\n\nNo private seller email is exposed to the customer.`);
+      const user = auth.currentUser;
+      if (!order || !user) return;
+
+      const seller = chooseOrderSeller(order, 'request a return or refund from');
+      if (!seller) return;
+
+      if (returnRequestForSeller(order, seller.sellerId)) {
+        alert(`A return / refund request already exists for ${seller.name}.`);
+        return;
+      }
+
+      const reason = prompt(
+        `Return / refund reason for ${seller.name}:\n\nExamples: damaged item, wrong item, changed mind, item not as described.`,
+        ''
+      );
+      if (reason === null) return;
+      if (!reason.trim()) {
+        alert('Please enter a reason.');
+        return;
+      }
+
+      const details = prompt(
+        'Add any helpful details for the seller (optional):',
+        ''
+      );
+      if (details === null) return;
+
+      const confirmed = confirm(
+        `Submit a return / refund request for order ${orderShortId(order)} to ${seller.name}?`
+      );
+      if (!confirmed) return;
+
+      try {
+        const idToken = await user.getIdToken();
+        const result = await fetch('/.netlify/functions/request-order-return', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            orderId,
+            sellerId: seller.sellerId,
+            reason: reason.trim(),
+            details: details.trim()
+          })
+        });
+
+        const data = await result.json().catch(() => ({}));
+        if (!result.ok) throw new Error(data.error || 'Return / refund request could not be submitted.');
+
+        alert('Your return / refund request was submitted.');
+        await loadCustomerOrders();
+      } catch (error) {
+        console.error('Could not request return:', error);
+        alert(error.message || 'Return / refund request could not be submitted.');
+      }
+    };
+
+    window.respondToReturnRequest = async function respondToReturnRequest(orderId, status) {
+      const sellerAccount = await requireSellerAccount();
+      if (!sellerAccount) return;
+      const { user } = sellerAccount;
+
+      const sellerResponse = prompt(
+        status === 'approved'
+          ? 'Optional message to the customer about the approved return / refund:'
+          : status === 'declined'
+            ? 'Please explain why the request is declined:'
+            : 'What additional information do you need from the customer?',
+        ''
+      );
+      if (sellerResponse === null) return;
+
+      const confirmed = confirm(`Set this return / refund request to ${returnRequestStatusLabel(status)}?`);
+      if (!confirmed) return;
+
+      try {
+        const idToken = await user.getIdToken();
+        const result = await fetch('/.netlify/functions/respond-order-return', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            orderId,
+            status,
+            sellerResponse: sellerResponse.trim()
+          })
+        });
+
+        const data = await result.json().catch(() => ({}));
+        if (!result.ok) throw new Error(data.error || 'Return / refund request could not be updated.');
+
+        alert(`Return / refund request updated to ${returnRequestStatusLabel(status)}.`);
+        await loadSellerOrders();
+      } catch (error) {
+        console.error('Could not respond to return request:', error);
+        alert(error.message || 'Return / refund request could not be updated.');
+      }
     };
 
     window.loadCustomerOrders = async function loadCustomerOrders() {
@@ -1718,8 +2105,11 @@ window.showSellerProductForm = function showSellerProductForm() {
             <div class="listing-meta"><strong>Order ${escapeOrderText(orderShortId(order))}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
             <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
             ${orderProgressHtml(order)}
+            ${orderShippingDetailsHtml(order)}
             ${itemsHtml}
             <p><strong>Total: $${(Number(order.amountTotalCents || 0) / 100).toFixed(2)} ${escapeOrderText(orderCurrency(order))}</strong></p>
+            ${customerReturnRequestsHtml(order)}
+            ${orderMessagesHtml(order)}
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
               <button type="button" onclick="viewOrderDetails('${escapeOrderText(order.id)}')">View Details / Receipt</button>
               <button type="button" class="button-secondary" onclick="buyOrderAgain('${escapeOrderText(order.id)}')">Buy Again</button>
@@ -1756,18 +2146,67 @@ window.showSellerProductForm = function showSellerProductForm() {
     window.updateSellerOrderStatus = async function updateSellerOrderStatus(orderId, status) {
       const sellerAccount = await requireSellerAccount();
       if (!sellerAccount) return;
+
       const { user } = sellerAccount;
-      if (!confirm(`Update this order to ${sellerOrderStatusLabel(status)}?`)) return;
+      const payload = { orderId, status };
+
+      if (status === 'processing') {
+        const estimatedShipDate = prompt(
+          'Optional: enter the estimated ship date as YYYY-MM-DD.\n\nLeave blank if you do not know it yet.',
+          ''
+        );
+        if (estimatedShipDate === null) return;
+        if (estimatedShipDate.trim()) payload.estimatedShipDate = estimatedShipDate.trim();
+      }
+
+      if (status === 'shipped') {
+        const estimatedDeliveryDate = prompt(
+          'Optional: enter the estimated delivery date as YYYY-MM-DD.\n\nLeave blank if unavailable.',
+          ''
+        );
+        if (estimatedDeliveryDate === null) return;
+
+        const carrier = prompt(
+          'Optional: enter the shipping carrier (for example Canada Post, UPS, FedEx).',
+          ''
+        );
+        if (carrier === null) return;
+
+        const trackingNumber = prompt(
+          'Optional: enter the tracking number.',
+          ''
+        );
+        if (trackingNumber === null) return;
+
+        if (estimatedDeliveryDate.trim()) payload.estimatedDeliveryDate = estimatedDeliveryDate.trim();
+        if (carrier.trim()) payload.carrier = carrier.trim();
+        if (trackingNumber.trim()) payload.trackingNumber = trackingNumber.trim();
+      }
+
+      const confirmed = confirm(`Update this order to ${sellerOrderStatusLabel(status)}?`);
+      if (!confirmed) return;
+
       try {
         const idToken = await user.getIdToken();
+
         const result = await fetch('/.netlify/functions/update-order-status', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-          body: JSON.stringify({ orderId, status })
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify(payload)
         });
+
         let data = {};
-        try { data = await result.json(); } catch (_) {}
-        if (!result.ok) throw new Error(data.error || 'Order status could not be updated.');
+        try {
+          data = await result.json();
+        } catch (_) {}
+
+        if (!result.ok) {
+          throw new Error(data.error || 'Order status could not be updated.');
+        }
+
         alert(`Order status updated to ${sellerOrderStatusLabel(data.status || status)}.`);
         await loadSellerOrders();
       } catch (error) {
@@ -1806,7 +2245,30 @@ window.showSellerProductForm = function showSellerProductForm() {
             <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
             <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || 'Buyer email unavailable')}</p>
             ${itemsHtml || '<p class="tiny-note">No items from your store were found in this order.</p>'}
-            <p style="margin-bottom:0;"><strong>Your items total: $${(sellerTotalCents / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+            <p><strong>Your items total: $${(sellerTotalCents / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+            ${(() => {
+              const request = returnRequestForSeller(order, user.uid);
+              if (!request) return '';
+              const status = String(request.status || 'requested').toLowerCase();
+              const controls = (status === 'requested' || status === 'needs_info')
+                ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                    <button type="button" onclick="respondToReturnRequest('${escapeOrderText(order.id)}','approved')">Approve Return</button>
+                    <button type="button" class="button-secondary" onclick="respondToReturnRequest('${escapeOrderText(order.id)}','needs_info')">Need Info</button>
+                    <button type="button" class="button-secondary" onclick="respondToReturnRequest('${escapeOrderText(order.id)}','declined')">Decline</button>
+                  </div>`
+                : '';
+              return `<div style="margin:12px 0;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);">
+                <div class="listing-meta"><strong>Return / refund request</strong><span class="discount-tag">${escapeOrderText(returnRequestStatusLabel(status))}</span></div>
+                ${request.reason ? `<div class="tiny-note" style="margin-top:6px;"><strong>Reason:</strong> ${escapeOrderText(request.reason)}</div>` : ''}
+                ${request.details ? `<div class="tiny-note" style="margin-top:4px;">${escapeOrderText(request.details)}</div>` : ''}
+                ${request.sellerResponse ? `<div class="tiny-note" style="margin-top:7px;"><strong>Your response:</strong> ${escapeOrderText(request.sellerResponse)}</div>` : ''}
+                ${controls}
+              </div>`;
+            })()}
+            ${orderMessagesHtml(order, user.uid)}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+              <button type="button" class="button-secondary" onclick="sellerReplyToOrder('${escapeOrderText(order.id)}')">Message Customer</button>
+            </div>
             ${sellerOrderStatusControls(order.id, currentSellerStatus)}
           </div>`;
         }).join('');
