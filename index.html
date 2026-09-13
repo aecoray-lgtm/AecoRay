@@ -1483,9 +1483,37 @@ window.showSellerProductForm = function showSellerProductForm() {
       }
     }
 
+    function customerOrderStatus(order = {}) {
+      const statusRank = {
+        new: 0,
+        processing: 1,
+        shipped: 2,
+        delivered: 3
+      };
+
+      const sellerStatuses = order.sellerStatuses && typeof order.sellerStatuses === 'object'
+        ? Object.values(order.sellerStatuses)
+            .map((entry) => String(entry?.status || '').trim().toLowerCase())
+            .filter((status) => status in statusRank)
+        : [];
+
+      // For multi-seller orders, show the least-advanced seller status
+      // so the customer never sees the whole order as further along than it really is.
+      if (sellerStatuses.length) {
+        return sellerStatuses.reduce((leastAdvanced, status) =>
+          statusRank[status] < statusRank[leastAdvanced] ? status : leastAdvanced
+        );
+      }
+
+      const legacy = String(order.status || order.orderStatus || '').trim().toLowerCase();
+      if (legacy in statusRank) return legacy;
+
+      return 'new';
+    }
+
     function orderStatusLabel(order = {}) {
-      const raw = String(order.status || order.orderStatus || order.paymentStatus || 'paid').trim();
-      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'Paid';
+      const raw = customerOrderStatus(order);
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'New';
     }
 
     function orderItemsArray(order = {}) {
@@ -1510,12 +1538,13 @@ window.showSellerProductForm = function showSellerProductForm() {
     }
 
     function orderProgressHtml(order = {}) {
-      const raw = String(order.status || order.orderStatus || 'paid').toLowerCase();
+      const raw = customerOrderStatus(order);
       const stages = ['Paid', 'Processing', 'Shipped', 'Delivered'];
-      let activeIndex = 0;
-      if (raw.includes('deliver')) activeIndex = 3;
-      else if (raw.includes('ship')) activeIndex = 2;
-      else if (raw.includes('process')) activeIndex = 1;
+      const activeIndex =
+        raw === 'delivered' ? 3 :
+        raw === 'shipped' ? 2 :
+        raw === 'processing' ? 1 : 0;
+
       return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;">
         ${stages.map((stage, index) => `<div style="padding:9px 6px;text-align:center;border-radius:12px;border:1px solid var(--line);background:${index <= activeIndex ? 'rgba(124,247,212,.13)' : 'rgba(255,255,255,.03)'};font-size:12px;font-weight:700;">${index <= activeIndex ? '✓ ' : ''}${stage}</div>`).join('')}
       </div>`;
@@ -1705,15 +1734,55 @@ window.showSellerProductForm = function showSellerProductForm() {
       }
     };
 
+    function sellerOrderStatus(order = {}, sellerId = '') {
+      const perSellerStatus = order.sellerStatuses?.[sellerId]?.status;
+      return String(perSellerStatus || order.orderStatus || 'new').trim().toLowerCase();
+    }
+
+    function sellerOrderStatusLabel(status = 'new') {
+      const raw = String(status || 'new').trim().toLowerCase();
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'New';
+    }
+
+    function sellerOrderStatusControls(orderId, currentStatus) {
+      const steps = ['new', 'processing', 'shipped', 'delivered'];
+      const currentIndex = Math.max(0, steps.indexOf(currentStatus));
+      const nextStatus = steps[currentIndex + 1];
+      if (!nextStatus) return '<p class="tiny-note" style="margin-bottom:0;">✓ This order has been marked delivered.</p>';
+      const labels = { processing: 'Mark Processing', shipped: 'Mark Shipped', delivered: 'Mark Delivered' };
+      return `<div style="margin-top:14px;"><button type="button" onclick="updateSellerOrderStatus('${escapeOrderText(orderId)}','${nextStatus}')">${labels[nextStatus]}</button><p class="tiny-note" style="margin-bottom:0;">Status changes move forward only and are saved securely.</p></div>`;
+    }
+
+    window.updateSellerOrderStatus = async function updateSellerOrderStatus(orderId, status) {
+      const sellerAccount = await requireSellerAccount();
+      if (!sellerAccount) return;
+      const { user } = sellerAccount;
+      if (!confirm(`Update this order to ${sellerOrderStatusLabel(status)}?`)) return;
+      try {
+        const idToken = await user.getIdToken();
+        const result = await fetch('/.netlify/functions/update-order-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({ orderId, status })
+        });
+        let data = {};
+        try { data = await result.json(); } catch (_) {}
+        if (!result.ok) throw new Error(data.error || 'Order status could not be updated.');
+        alert(`Order status updated to ${sellerOrderStatusLabel(data.status || status)}.`);
+        await loadSellerOrders();
+      } catch (error) {
+        console.error('Could not update seller order status:', error);
+        alert(error.message || 'Order status could not be updated. Please try again.');
+      }
+    };
+
     window.loadSellerOrders = async function loadSellerOrders() {
       const list = document.getElementById('sellerOrdersList');
       if (!list) return;
       const sellerAccount = await requireSellerAccount();
       if (!sellerAccount) return;
       const { user } = sellerAccount;
-
       list.innerHTML = '<p class="tiny-note">Loading incoming orders...</p>';
-
       try {
         const ordersQuery = query(collection(db, 'ORDERS'), where('sellerIds', 'array-contains', user.uid));
         const snapshot = await getDocs(ordersQuery);
@@ -1723,22 +1792,22 @@ window.showSellerProductForm = function showSellerProductForm() {
           const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
           return bTime - aTime;
         });
-
         if (!orders.length) {
           list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">No paid customer orders have reached your store yet.</p></div>';
           return;
         }
-
         list.innerHTML = orders.map((order) => {
           const sellerItems = orderItemsArray(order).filter((item) => item.sellerId === user.uid);
           const sellerTotalCents = sellerItems.reduce((sum, item) => sum + (Number(item.unitAmountCents || 0) * Number(item.quantity || 1)), 0);
           const itemsHtml = sellerItems.map((item) => `<div style="padding:10px 0; border-top:1px solid var(--line);"><strong>${escapeOrderText(item.name || 'Marketplace item')}</strong><div class="tiny-note">Qty ${Number(item.quantity || 1)} · $${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} · ${escapeOrderText(item.fulfillment || 'Fulfillment to be confirmed')}</div></div>`).join('');
+          const currentSellerStatus = sellerOrderStatus(order, user.uid);
           return `<div class="panel" style="margin-top:12px;">
-            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
+            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(sellerOrderStatusLabel(currentSellerStatus))}</span></div>
             <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
             <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || 'Buyer email unavailable')}</p>
             ${itemsHtml || '<p class="tiny-note">No items from your store were found in this order.</p>'}
             <p style="margin-bottom:0;"><strong>Your items total: $${(sellerTotalCents / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+            ${sellerOrderStatusControls(order.id, currentSellerStatus)}
           </div>`;
         }).join('');
       } catch (error) {
