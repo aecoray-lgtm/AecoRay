@@ -1705,15 +1705,55 @@ window.showSellerProductForm = function showSellerProductForm() {
       }
     };
 
+    function sellerOrderStatus(order = {}, sellerId = '') {
+      const perSellerStatus = order.sellerStatuses?.[sellerId]?.status;
+      return String(perSellerStatus || order.orderStatus || 'new').trim().toLowerCase();
+    }
+
+    function sellerOrderStatusLabel(status = 'new') {
+      const raw = String(status || 'new').trim().toLowerCase();
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ') : 'New';
+    }
+
+    function sellerOrderStatusControls(orderId, currentStatus) {
+      const steps = ['new', 'processing', 'shipped', 'delivered'];
+      const currentIndex = Math.max(0, steps.indexOf(currentStatus));
+      const nextStatus = steps[currentIndex + 1];
+      if (!nextStatus) return '<p class="tiny-note" style="margin-bottom:0;">✓ This order has been marked delivered.</p>';
+      const labels = { processing: 'Mark Processing', shipped: 'Mark Shipped', delivered: 'Mark Delivered' };
+      return `<div style="margin-top:14px;"><button type="button" onclick="updateSellerOrderStatus('${escapeOrderText(orderId)}','${nextStatus}')">${labels[nextStatus]}</button><p class="tiny-note" style="margin-bottom:0;">Status changes move forward only and are saved securely.</p></div>`;
+    }
+
+    window.updateSellerOrderStatus = async function updateSellerOrderStatus(orderId, status) {
+      const sellerAccount = await requireSellerAccount();
+      if (!sellerAccount) return;
+      const { user } = sellerAccount;
+      if (!confirm(`Update this order to ${sellerOrderStatusLabel(status)}?`)) return;
+      try {
+        const idToken = await user.getIdToken();
+        const result = await fetch('/.netlify/functions/update-order-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({ orderId, status })
+        });
+        let data = {};
+        try { data = await result.json(); } catch (_) {}
+        if (!result.ok) throw new Error(data.error || 'Order status could not be updated.');
+        alert(`Order status updated to ${sellerOrderStatusLabel(data.status || status)}.`);
+        await loadSellerOrders();
+      } catch (error) {
+        console.error('Could not update seller order status:', error);
+        alert(error.message || 'Order status could not be updated. Please try again.');
+      }
+    };
+
     window.loadSellerOrders = async function loadSellerOrders() {
       const list = document.getElementById('sellerOrdersList');
       if (!list) return;
       const sellerAccount = await requireSellerAccount();
       if (!sellerAccount) return;
       const { user } = sellerAccount;
-
       list.innerHTML = '<p class="tiny-note">Loading incoming orders...</p>';
-
       try {
         const ordersQuery = query(collection(db, 'ORDERS'), where('sellerIds', 'array-contains', user.uid));
         const snapshot = await getDocs(ordersQuery);
@@ -1723,22 +1763,22 @@ window.showSellerProductForm = function showSellerProductForm() {
           const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
           return bTime - aTime;
         });
-
         if (!orders.length) {
           list.innerHTML = '<div class="panel" style="margin-top:12px;"><p style="margin:0;">No paid customer orders have reached your store yet.</p></div>';
           return;
         }
-
         list.innerHTML = orders.map((order) => {
           const sellerItems = orderItemsArray(order).filter((item) => item.sellerId === user.uid);
           const sellerTotalCents = sellerItems.reduce((sum, item) => sum + (Number(item.unitAmountCents || 0) * Number(item.quantity || 1)), 0);
           const itemsHtml = sellerItems.map((item) => `<div style="padding:10px 0; border-top:1px solid var(--line);"><strong>${escapeOrderText(item.name || 'Marketplace item')}</strong><div class="tiny-note">Qty ${Number(item.quantity || 1)} · $${((Number(item.unitAmountCents || 0) * Number(item.quantity || 1)) / 100).toFixed(2)} · ${escapeOrderText(item.fulfillment || 'Fulfillment to be confirmed')}</div></div>`).join('');
+          const currentSellerStatus = sellerOrderStatus(order, user.uid);
           return `<div class="panel" style="margin-top:12px;">
-            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(orderStatusLabel(order))}</span></div>
+            <div class="listing-meta"><strong>Order ${escapeOrderText(order.id.slice(0, 8).toUpperCase())}</strong><span class="discount-tag">${escapeOrderText(sellerOrderStatusLabel(currentSellerStatus))}</span></div>
             <p class="tiny-note">${escapeOrderText(formatOrderDate(order.createdAt))}</p>
             <p><strong>Buyer:</strong> ${escapeOrderText(order.buyerEmail || 'Buyer email unavailable')}</p>
             ${itemsHtml || '<p class="tiny-note">No items from your store were found in this order.</p>'}
             <p style="margin-bottom:0;"><strong>Your items total: $${(sellerTotalCents / 100).toFixed(2)} ${escapeOrderText(String(order.currency || 'cad').toUpperCase())}</strong></p>
+            ${sellerOrderStatusControls(order.id, currentSellerStatus)}
           </div>`;
         }).join('');
       } catch (error) {
